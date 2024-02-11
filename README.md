@@ -15,7 +15,7 @@ which defines build targets. For simple cases, a declarative style based on deco
 ```python
 @target("foo.out", deps=["foo.in"])
 def build_foo(target, deps):
-	run(["mycommand", "-o", target] + deps)
+	run("mycommand", "-o", target, *deps)
 ```
 
 This is approximately equivalent to the following Makefile rule:
@@ -28,7 +28,7 @@ You can also use regexes to define pattern rules:
 ```python
 @pattern(r"(.*)\.diff", deps=[r"\1.old", r"\1.new"])
 def make_diff(target, deps):
-	cmd(["diff", "-u"] + deps).stdout(target).run()
+	cmd("diff", "-u", *deps).stdout(target).run()
 ```
 
 and declare virtual (aka. "phony") targets, which may or may not actually do anything:
