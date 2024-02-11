@@ -1,6 +1,7 @@
+import os
 import subprocess
 import sys
-import os
+import threading
 
 """Provides a builder for running child processes in an ergonomic way."""
 
@@ -26,8 +27,6 @@ class Command:
 
 	def __repr__(self):
 		return f"<Command {self._args} {self._env}>"
-
-	__str__ = __repr__
 
 	def _copy(self, **updates):
 		new = Command()
@@ -69,7 +68,7 @@ class Command:
 		return self._copy(_stdout=value)
 
 	def stderr(self, value):
-		"""As stdin()"""
+		"""As stdin(), but also accepts the value subprocess.STDOUT to redirect stderr to stdout."""
 		return self._copy(_stderr=value)
 
 	def workdir(self, dir):
@@ -78,28 +77,39 @@ class Command:
 		"""
 		return self._copy(_workdir=dir)
 
+	def __or__(self, other):
+		"""Form a pipeline with another command or pipeline"""
+		if isinstance(other, Command):
+			return Pipeline((self, other))
+		elif isinstance(other, Pipeline):
+			return Pipeline((self,) + other._commands)
+		else:
+			return NotImplemented
+
 	def run(self, error_on_failure=True):
 		"""Actually execute the command. Blocks until completed.
 		By default, will raise an error if the command exits non-zero.
-		If error_on_failure = False, instead returns the exit code.
+		If error_on_failure = False, instead returns a subprocess.CompletedProcess.
 		"""
-		retcode, stdout, stderr = self._run()
+		proc = self._run()
 		if error_on_failure:
+			proc.check_returncode()
 			return
 		else:
-			return retcode
+			return proc
 
 	def get_output(self, error_on_failure=True):
 		"""Like run(), executes the command. Unlike run, returns stdout as a byte string.
 		*Note this overrides any configured stdout behaviour*.
 		By default, will raise an error if the command exits non-zero.
-		If error_on_failure = False, instead returns (exit code, output).
+		If error_on_failure = False, instead returns subprocess.CompletedProcess.
 		"""
-		retcode, stdout, stderr = self.stdout(subprocess.PIPE)._run()
+		proc = self.stdout(subprocess.PIPE)._run()
 		if error_on_failure:
-			return stdout
+			proc.check_returncode()
+			return proc.stdout
 		else:
-			return retcode, stdout
+			return proc
 
 	def run_nonblocking(self):
 		"""Executes the command, but instead of blocking until completed, it returns immediately,
@@ -128,7 +138,7 @@ class Command:
 			except ProcessLookupError:
 				pass # process not existing is fine, ignore it.
 			raise
-		return retcode, stdout, stderr
+		return subprocess.CompletedProcess(self._args, retcode, stdout, stderr)
 
 	def _make_proc(self):
 		"""Common code for creating the Popen object"""
@@ -141,7 +151,7 @@ class Command:
 
 		def to_file(value, mode):
 			if value is None:
-				value = "/dev/null"
+				value = subprocess.DEVNULL,
 			if isinstance(value, str):
 				value = value.encode()
 			if isinstance(value, bytes):
@@ -157,6 +167,165 @@ class Command:
 			stderr = to_file(self._stderr, "wb"),
 			cwd = self._workdir,
 		)
+
+
+class Pipeline:
+	"""Represents a list of commands, where each one's stdin is connected to the 
+	previous command's stdout.
+	The intended way to construct this is to use the | operator on two commands:
+		(cmd("ls") | cmd("wc", "-l")).run()
+	"""
+	def __init__(self, commands):
+		self._commands = tuple(commands)
+		if not self._commands:
+			raise ValueError("Command list cannot be empty")
+
+	def __repr__(self):
+		return " | ".join(map(repr, self._commands))
+
+	def env(self, **env):
+		"""Set or update environment variables in all commands in the pipeline."""
+		return Pipeline(command.env(**env) for command in self._commands)
+
+	def stdin(self, value):
+		"""As Command.stdin(), applies to first command"""
+		return Pipeline((self._commands[0].stdin(value),) + self._commands[1:])
+
+	def stdin_data(self, data):
+		"""As Command.stdin_data(), applies to first command"""
+		return Pipeline((self._commands[0].stdin_data(data),) + self._commands[1:])
+
+	def stdout(self, value):
+		"""As Command.stdout(), applies to last command"""
+		return Pipeline(self._commands[:-1] + (self._commands[-1].stdout(value),))
+
+	def stderr(self, value):
+		"""As Command.stderr(), applies to all commands"""
+		return Pipeline(command.stderr(value) for command in self._commands)
+
+	def workdir(self, dir):
+		"""As Command.workdir(), applies to all commands"""
+		return Pipeline(command.workdir(dir) for command in self._commands)
+
+	def __or__(self, other):
+		"""Add another command or pipeline onto this pipeline"""
+		if isinstance(other, Command):
+			return Pipeline(self._commands + (other,))
+		elif isinstance(other, Pipeline):
+			return Pipeline((self._commands + other._commands))
+		else:
+			return NotImplemented
+
+	def run(self, error_on_failure="last"):
+		"""Actually execute the pipeline. Blocks until completed.
+		The behaviour if a command fails is determined by the error_on_failure value:
+			"last": Default. Will raise an error only if the last command exits non-zero.
+			"any": Will error if any of the commands fail. Equivalent to "set -o pipefail" in bash.
+			"never": Will not error on failure. A list of subprocess.CompletedProcess is returned.
+		"""
+		procs = self._run(error_on_failure)
+		return procs if error_on_failure == "never" else None
+
+	def get_output(self, error_on_failure="last"):
+		"""As run(), but captures stdout of the last command and returns it.
+		*Note this overrides any configured stdout behaviour*.
+		If error_on_failure = "never", returns a list of subprocess.CompletedProcess.
+			In this case you can access the stdout via `result[-1].stdout`.
+		"""
+		procs = self.stdout(subprocess.PIPE)._run(error_on_failure)
+		return procs if error_on_failure == "never" else procs[-1].stdout
+
+	def run_nonblocking(self):
+		"""Executes the pipeline, but instead of blocking until completed, it returns immediately,
+		returning a list of subprocess.Popen objects.
+		It is an error to combine this with writing string data to stdin as this requires blocking
+		on the command reading the stdin data.
+		"""
+		procs = []
+		for i, command in enumerate(self._commands):
+			if i > 0: # all but first, take stdin from previous
+				command = command.stdin(procs[-1].stdout)
+			if i < len(self._commands) - 1: # all but last, stdout is a pipe
+				command = command.stdout(subprocess.PIPE)
+			procs.append(command.run_nonblocking())
+		return procs
+
+	def _run(self, error_on_failure):
+		"""Common code for blocking execution methods"""
+		procs = []
+		completed = []
+		stdin = self._commands[0]._stdin
+		input_data = stdin[1] if stdin[0] == "data" else None
+
+		try:
+			procs = self.run_nonblocking()
+
+			# We need to potentially simultaneously:
+			# - Write stdin data
+			# - Read stdout data
+			# - Read stderr data (not officially supported but nice to have)
+			# Popen.communicate() does this with threads, so that's probably the safest choice
+			# to also do here.
+
+			# Thread results go here. stderrs have the proc as a key, stdout is "stdout"
+			bufs = {}
+			def read_to_buf(file, key):
+				bufs[key] = file.read()
+				file.close()
+
+			# Make one thread per stderr, plus one for stdout
+			def make_thread(*args):
+				thread = threading.Thread(target=read_to_buf, args=args)
+				thread.daemon = True
+				thread.start()
+				return thread
+			threads = [
+				make_thread(proc.stderr, proc)
+				for proc in procs if proc.stderr
+			]
+			if procs[-1].stdout:
+				threads.append(make_thread(procs[-1].stdout, "stdout"))
+
+			# Write stdin on the main thread
+			if input_data is not None:
+				try:
+					procs[0].stdin.write(input_data)
+					procs[0].stdin.close()
+				except BrokenPipeError:
+					pass
+
+			# Block until stdouts/errs close first. This mimics Popen.communicate().
+			# Technically we could get a hang here if the child hands off the pipe to someone
+			# else then exits, but this is the same behaviour as the stdlib.
+			for thread in threads:
+				thread.join()
+
+			# Now block until processes finish and assemble the output.
+			completed = []
+			for proc in procs:
+				retcode = proc.wait()
+				stdout = bufs.get("stdout") if proc is procs[-1] else None
+				stderr = bufs.get(proc)
+				completed.append(subprocess.CompletedProcess(proc.args, retcode, stdout, stderr))
+		except BaseException:
+			# If we bail out at any point above, kill all the commands before returning
+			for proc in procs:
+				if proc.poll() is None:
+					try:
+						proc.kill()
+					except ProcessLookupError:
+						# We just checked if it's running, but there's a TOCTOU window here.
+						# Ignore errors if it turns out to not be running after all.
+						pass
+			raise
+
+		# Check for errors
+		if error_on_failure == "any":
+			for proc in completed:
+				proc.check_returncode()
+		elif error_on_failure == "last":
+			completed[-1].check_returncode()
+		return completed
 
 
 # Root instance from which copies get made
