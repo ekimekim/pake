@@ -1,0 +1,262 @@
+
+import os
+from hashlib import sha256
+from uuid import uuid4
+
+
+"""API for declaring dependencies and build rules
+
+Glossary:
+	target: A string which identifies a buildable object
+	canonical target: A string which uniquely identifies a buildable object.
+		Multiple targets may map to the same canonical target, eg. "foo" and "bar/../foo".
+	filepath: A canonical target which is a file or directory (ie. not a virtual target)
+	rule: A means of building certain matching targets
+
+A generic "rule" consists of a recipe function, wrapped with some metadata:
+	PRIORITY: A float which sets the ordering for how rule types are searched.
+		This enables eg. simple rules to always overrule pattern rules.
+		If rules are tied (eg. within a rule type), priority is by declaration order.
+	match(target): Returns non-None if the rule can be used to build the given target.
+	deps(match): A list of rules that must be up to date before the matched target can build.
+		Must be passed the result of a call to match().
+	target(match): Returns the canonical target name of a target previously matched by a call
+		to match. Must be passed the result of the match() call.
+	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
+		Must be passed the result of a call to match() and a call to deps().
+		Normal rules return the hash of the built filepath. Virtual rules may return
+		other values, which must be JSONable (lists, dicts, strings, numbers, bools, None)
+		and should be small. The unique() function will give you a value to return that is
+		suitable to indicate "my dependents should always update if I have been updated".
+	update(match):
+		First ensures all its dependencies are up to date
+		then calls run() if not up to date and caches it.
+		Finally, it returns the result of run(), which may have been cached.
+"""
+
+
+def unique():
+	return f"unique:{uuid4()}"
+
+
+def hash_file(filepath):
+	"""Hashes the contents of the given file, returning a string.
+	For directories, this is the list of files in that directory.
+	"""
+	# Note we're intentionally following symlinks here as
+	# we are generally interested in file contents.
+	# If the user wants to only consider a file changed if the actual symlink pointer changes,
+	# they can use a virtual rule that calls readlink.
+	if os.path.isdir(filepath):
+		hash = sha256("\0".join(sorted(os.listdir(filepath))))
+	else:
+		hash = sha256()
+		with open(filepath, "rb") as f:
+			# stream in 64KiB chunks to avoid excessive memory usage
+			for chunk in f.read(64 * 1024):
+				hash.update(chunk)
+	return hash.hexdigest()
+
+
+def normalize_path(filepath):
+	if isinstance(filepath, str):
+		filepath = filepath.encode()
+	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
+	# cases: "../PATH" and "PATH".
+	path = os.path.relpath(path)
+	if path.startswith("../"):
+		raise ValueError(f"Target cannot be outside current directory: {filepath!r}")
+	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
+	# virtual targets.
+	return f"./{path}"
+
+
+class Rule:
+	def __init__(self, registry, name):
+		self.registry = registry
+		self.name = name
+
+	def __repr__(self):
+		return f"<{type(self).__name__}({self.name!r})>"
+
+	def update(self, match):
+		deps = self.deps(match)
+		target = self.target(match)
+
+		inputs = {}
+		for dep in deps:
+			rule, match = self.registry.resolve(dep)
+			# Note we are intentionally not using the canonical target of dep,
+			# so that any change in how dep is specified causes a rebuild.
+			inputs[dep] = rule.update(match)
+
+		if self.registry.needs_update(target, inputs):
+			result = self.run(match, deps)
+			self.registry.save_result(target, result)
+
+		return self.registry.get_result(target)
+
+
+class AlwaysRule(Rule):
+	"""A special-cased do-nothing rule which always returns a unique string,
+	forcing any dependent to always be rebuilt."""
+	# Is fundamental and will break things if overriden, always go first
+	PRIORITY = float("-inf")
+
+	def __init__(self, registry):
+		super().__init__(self, registry, "always")
+
+	def __repr__(self):
+		return "<AlwaysRule>"
+
+	def match(self, target):
+		return target if target == "always" else None
+
+	def update(self, match):
+		return unique()
+
+
+class FallbackRule(Rule):
+	"""The rule that is used for any filepaths that otherwise don't have a matching rule.
+	It returns the hash of the file if it exists, or errors otherwise.
+	"""
+	# Matches anything, always go last
+	PRIORITY = float("inf")
+
+	def __init__(self, registry):
+		super().__init__(self, registry, "fallback")
+
+	def __repr__(self):
+		return "<FallbackRule>"
+
+	def match(self, target):
+		return normalize_path(target)
+
+	def target(self, match):
+		return match
+
+	def deps(self, match):
+		return ["always"]
+
+	def run(self, match, deps):
+		try:
+			return hash_file(match)
+		except FileNotFoundError:
+			raise BuildException(f"{match} does not exist and there is no rule to create it")
+
+
+class VirtualRule(Rule):
+	"""A rule that doesn't output a file, but rather some other piece of data,
+	or nothing. Still obeys the normal behaviour for being considered up-to-date.
+
+	NAME can be used to refer to this rule's target as a dependency.
+	If both a virtual target NAME and a file called NAME exist, "NAME" refers to the virtual target
+	whereas "./NAME" refers to the file.
+	"""
+	PRIORITY = 0 # Lower than all file-based rules, to ensure the virtual rule matches NAME first
+
+	def __init__(self, registry, recipe, name=None, deps=[]):
+		if name is None:
+			name = recipe.__name__
+		super().__init__(registry, name)
+		self.recipe = recipe
+		self._deps = deps
+
+	def match(self, target):
+		# Note intentionally not normalizing path, must literally match
+		return target if self.name == target else None
+
+	def target(self, match):
+		return match
+
+	def deps(self, match):
+		return self._deps
+
+	def run(self, match, deps):
+		return self.recipe(deps)
+
+
+class SimpleRule(Rule):
+	"""Basic rule for a fixed filepath.
+	Recipe is called with filename to build and list of deps.
+	"""
+	PRIORITY = 10 # Prefer simple rules over pattern rules
+
+	def __init__(self, registry, recipe, filepath, deps=[]):
+		super().__init__(registry, filepath)
+		self.recipe = recipe
+		self.filepath = normalize_path(filepath)
+		self._deps = deps
+
+	def match(self, target):
+		filepath = normalize_path(target)
+		return filepath if self.filepath == filepath else None
+
+	def target(self, match):
+		return match
+
+	def deps(self, match):
+		return self._deps
+
+	def run(self, match, deps):
+		self.recipe(match, deps)
+		return hash_file(match)
+
+	def __call__(self):
+		return self.update(self.match(self.filepath))
+
+
+class PatternRule(Rule):
+	"""A rule that builds filepaths matching a regex.
+	Deps may contain pattern replacements (eg. "\1.o" where the pattern is ".*\.c").
+	Keep in mind that patterns are based on whole filepaths, not just the filename.
+	"""
+	PRIORITY = 20
+
+	def __init__(self, registry, recipe, pattern, deps=[]):
+		super().__init__(registry, pattern)
+		self.recipe = recipe
+		self.pattern = re.compile(pattern)
+		self._deps = deps
+
+	def match(self, target):
+		return self.pattern.match(normalize_path(target))
+
+	def target(self, match):
+		return match.string
+
+	def deps(self, match):
+		return [match.expand(dep) for dep in self._deps]
+
+	def run(self, match, deps):
+		target = self.target(match)
+		self.recipe(target, deps)
+		return hash_file(target)
+
+	def __call__(self, target):
+		match = self.match(target)
+		if match is None:
+			raise ValueError(f"{target!r} is not a valid target matching {self.pattern.pattern!r}")
+		return self.update(match)
+
+
+def as_decorator(registry, rule_type):
+	"""
+	For a given Rule class, creators a decorator-style contructor:
+		my_rule = as_decorator(registry, MyRule)
+
+		@my_rule("foo", "bar")
+		def f():
+			pass
+	is equivalent to:
+		def f():
+			pass
+		f = MyRule(registry, f, "foo", "bar")
+	"""
+	# Ensure the decorator factory inherits the docstring of the rule type
+	@functools.wraps(rule_type)
+	def decorator_factory(*args, **kwargs):
+		def decorator(fn):
+			return rule_type(registry, fn, *args, **kwargs)
+		return decorator
+	return decorator_factory
