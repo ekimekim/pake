@@ -73,12 +73,18 @@ class Registry:
 		}
 		execfile(pakefile, injected)
 
+	def update(self, target):
+		"""Build target and any dependencies (if they are not up to date) and return
+		the target's result"""
+		rule, match = self.resolve(target)
+		return rule.update(match)
+
 	def resolve(self, target):
 		"""Find and return the rule that matches target"""
 		for rule in self.rules:
 			match = rule.match(target)
 			if match is not None:
-				return match
+				return rule, match
 		raise AssertionError("No rules matched (not even fallback rule)")
 
 	def register(self, rule):
