@@ -33,7 +33,8 @@ def make_diff(target, deps):
 
 and declare virtual (aka. "phony") targets, which may or may not actually do anything:
 ```python
-@virtual(deps=["foo", "bar"], default=True)
+@default
+@virtual(deps=["foo", "bar"])
 def all(deps):
 	pass
 ```
