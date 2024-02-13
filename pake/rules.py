@@ -1,5 +1,8 @@
 
+import functools
 import os
+import re
+import traceback
 from hashlib import sha256
 from uuid import uuid4
 
@@ -65,7 +68,7 @@ def normalize_path(filepath):
 		filepath = filepath.encode()
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
-	path = os.path.relpath(path)
+	path = os.path.relpath(filepath)
 	if path.startswith("../"):
 		raise ValueError(f"Target cannot be outside current directory: {filepath!r}")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from

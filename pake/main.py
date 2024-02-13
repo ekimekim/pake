@@ -1,8 +1,10 @@
 
-import argh
+import sys
+import os
 
 from .registry import Registry
 from .rules import FallbackRule
+from .exceptions import PakeError
 
 def main(*targets, pakefile=None, statefile=".pake-state"):
 	try:

@@ -1,6 +1,8 @@
 
 import fcntl
+import json
 import os
+from uuid import uuid4
 
 from . import rules, cmd
 from .exceptions import PakeError
@@ -71,7 +73,10 @@ class Registry:
 			"shell": cmd.shell,
 			"find": cmd.find,
 		}
-		execfile(pakefile, injected)
+		with open(pakefile) as f:
+			source = f.read()
+		code = compile(source, pakefile, "exec")
+		exec(code, injected)
 
 	def update(self, target):
 		"""Build target and any dependencies (if they are not up to date) and return
