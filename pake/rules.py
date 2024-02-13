@@ -3,6 +3,8 @@ import os
 from hashlib import sha256
 from uuid import uuid4
 
+from .exceptions import BuildError
+
 
 """API for declaring dependencies and build rules
 
@@ -75,24 +77,36 @@ class Rule:
 	def __init__(self, registry, name):
 		self.registry = registry
 		self.name = name
+		self.registry.register(self)
 
 	def __repr__(self):
 		return f"<{type(self).__name__}({self.name!r})>"
 
-	def update(self, match):
+	def update(self, match, _cycle_check=()):
 		deps = self.deps(match)
 		target = self.target(match)
+
+		if target in _cycle_check:
+			cycle = " -> ".join(map(repr, _cycle_check + (target,)))
+			raise BuildError(f"Dependency cycle detected: {cycle}")
 
 		inputs = {}
 		for dep in deps:
 			rule, match = self.registry.resolve(dep)
 			# Note we are intentionally not using the canonical target of dep,
 			# so that any change in how dep is specified causes a rebuild.
-			inputs[dep] = rule.update(match)
+			inputs[dep] = rule.update(match, _cycle_check = _cycle_check + (target,))
 
 		if self.registry.needs_update(target, inputs):
-			result = self.run(match, deps)
-			self.registry.save_result(target, result)
+			try:
+				result = self.run(match, deps)
+			except BuildError:
+				raise
+			except Exception:
+				raise BuildError(
+					f"Exception in recipe while building {target!r}:\n{traceback.format_exc().strip()}"
+				)
+			self.registry.save_result(target, inputs, result)
 
 		return self.registry.get_result(target)
 
@@ -142,7 +156,7 @@ class FallbackRule(Rule):
 		try:
 			return hash_file(match)
 		except FileNotFoundError:
-			raise BuildException(f"{match} does not exist and there is no rule to create it")
+			raise BuildError(f"{match} does not exist and there is no rule to create it")
 
 
 class VirtualRule(Rule):
@@ -176,9 +190,9 @@ class VirtualRule(Rule):
 		return self.recipe(deps)
 
 
-class SimpleRule(Rule):
-	"""Basic rule for a fixed filepath.
-	Recipe is called with filename to build and list of deps.
+class TargetRule(Rule):
+	"""Basic rule for a single target filepath.
+	Recipe is called with filepath to build and list of deps.
 	"""
 	PRIORITY = 10 # Prefer simple rules over pattern rules
 
@@ -216,7 +230,7 @@ class PatternRule(Rule):
 	def __init__(self, registry, recipe, pattern, deps=[]):
 		super().__init__(registry, pattern)
 		self.recipe = recipe
-		self.pattern = re.compile(pattern)
+		self.pattern = re.compile(f"^({pattern})$")
 		self._deps = deps
 
 	def match(self, target):
@@ -236,7 +250,7 @@ class PatternRule(Rule):
 	def __call__(self, target):
 		match = self.match(target)
 		if match is None:
-			raise ValueError(f"{target!r} is not a valid target matching {self.pattern.pattern!r}")
+			raise ValueError(f"{target!r} is not a valid target matching {self.name!r}")
 		return self.update(match)
 
 

@@ -348,3 +348,21 @@ def shell(command, **env):
 		shell('rm "foo/$PATH"', PATH=path).run()
 	"""
 	return cmd(os.environ["SHELL"], "-c", command).env(**env)
+
+def find(*args):
+	"""Executes a `find(1)` command in the current directory with the given args used as test
+	predicates. The matching filenames are returned as a list. Example:
+		find("-type", "f", "-name" "*.txt")
+	"""
+	return cmd("find", "(", *args, ")", "-print0").get_output().split("\0")
+
+def match_files(regex, path="."):
+	"""Returns a list of all files under the given path that match the given regex."""
+	regex = re.compile(f"^({regex})$")
+	results = []
+	for dirpath, dirnames, filenames in os.walk(path):
+		for name in dirnames + filenames:
+			fullname = os.path.join(dirpath, name)
+			if regex.match(fullname):
+				results.append(fullname)
+	return results
