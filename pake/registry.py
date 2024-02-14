@@ -79,11 +79,11 @@ class Registry:
 		code = compile(source, pakefile, "exec")
 		exec(code, injected)
 
-	def update(self, target):
+	def update(self, target, force=False):
 		"""Build target and any dependencies (if they are not up to date) and return
 		the target's result"""
 		rule, match = self.resolve(target)
-		return rule.update(match)
+		return rule.update(match, force=force)
 
 	def resolve(self, target):
 		"""Find and return the rule that matches target"""

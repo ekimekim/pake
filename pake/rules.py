@@ -89,7 +89,7 @@ class Rule:
 	def __repr__(self):
 		return f"<{type(self).__name__}({self.name!r})>"
 
-	def update(self, match, _cycle_check=()):
+	def update(self, match, force=False, _cycle_check=()):
 		deps = self.deps(match)
 		target = self.target(match)
 
@@ -102,11 +102,13 @@ class Rule:
 			rule, dep_match = self.registry.resolve(dep)
 			# Note we are intentionally not using the canonical target of dep,
 			# so that any change in how dep is specified causes a rebuild.
-			inputs[dep] = rule.update(dep_match, _cycle_check = _cycle_check + (target,))
+			inputs[dep] = rule.update(dep_match, force=force, _cycle_check = _cycle_check + (target,))
 
 		# Always rebuild if deps have changed, but also ask the rule to do other checks
 		# (eg. rebuild if the file hash does not match).
-		needs_update = self.registry.needs_update(target, inputs)
+		needs_update = force
+		if not needs_update:
+			needs_update = self.registry.needs_update(target, inputs)
 		if not needs_update:
 			result = self.registry.get_result(target)
 			needs_update = self.needs_update(match, result)
@@ -219,6 +221,9 @@ class VirtualRule(Rule):
 	def run(self, match, deps):
 		return self.recipe(deps)
 
+	def __call__(self, force=False):
+		return self.update(self.match(self.name), force=force)
+
 
 class TargetRule(Rule):
 	"""Basic rule for a single target filepath.
@@ -252,8 +257,8 @@ class TargetRule(Rule):
 		self.recipe(match, deps)
 		return hash_file(match)
 
-	def __call__(self):
-		return self.update(self.match(self.filepath))
+	def __call__(self, force=False):
+		return self.update(self.match(self.filepath), force=force)
 
 
 class PatternRule(Rule):
@@ -289,11 +294,11 @@ class PatternRule(Rule):
 		self.recipe(target, deps)
 		return hash_file(target)
 
-	def __call__(self, target):
+	def __call__(self, target, force=False):
 		match = self.match(target)
 		if match is None:
 			raise ValueError(f"{target!r} is not a valid target matching {self.name!r}")
-		return self.update(match)
+		return self.update(match, force=force)
 
 
 def as_decorator(registry, rule_type):

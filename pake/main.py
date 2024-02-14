@@ -6,7 +6,7 @@ from .registry import Registry
 from .rules import FallbackRule
 from .exceptions import PakeError
 
-def main(*targets, pakefile=None, statefile=".pake-state"):
+def main(*targets, pakefile=None, statefile=".pake-state", force=False):
 	try:
 		if pakefile is None:
 			candidates = ["Pakefile", "Pakefile.py"]
@@ -21,7 +21,7 @@ def main(*targets, pakefile=None, statefile=".pake-state"):
 		registry.load_pakefile(pakefile)
 
 		for target in targets:
-			registry.update(target)
+			registry.update(target, force=force)
 
 		if not targets:
 			default_rule, match = registry.resolve("default")
