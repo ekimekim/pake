@@ -19,7 +19,8 @@ class State:
 
 		# Open or create file. We create it if it doesn't exist so that we can take the lock.
 		# We keep it open to hold the lock.
-		self.file = open(self.path, "r+")
+		self.file = open(self.path, "a+")
+		self.file.seek(0)
 		# Obtain lock on file, preventing simultaneous usage.
 		# Unlocking is implicit when the file is later closed.
 		try:
@@ -56,10 +57,9 @@ class Registry:
 	def __init__(self, state_path):
 		self.state = State(state_path)
 		# Initial implicit rules
-		self.rules = [
-			rules.AlwaysRule(self),
-			rules.FallbackRule(self),
-		]
+		self.rules = []
+		rules.AlwaysRule(self)
+		rules.FallbackRule(self)
 
 	def load_pakefile(self, pakefile):
 		injected = {

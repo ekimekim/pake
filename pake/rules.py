@@ -69,11 +69,11 @@ def normalize_path(filepath):
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
-	if path.startswith("../"):
+	if path.startswith(b"../"):
 		raise ValueError(f"Target cannot be outside current directory: {filepath!r}")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
-	return f"./{path}"
+	return b"./" + path
 
 
 class Rule:
@@ -121,7 +121,7 @@ class AlwaysRule(Rule):
 	PRIORITY = float("-inf")
 
 	def __init__(self, registry):
-		super().__init__(self, registry, "always")
+		super().__init__(registry, "always")
 
 	def __repr__(self):
 		return "<AlwaysRule>"
@@ -141,7 +141,7 @@ class FallbackRule(Rule):
 	PRIORITY = float("inf")
 
 	def __init__(self, registry):
-		super().__init__(self, registry, "fallback")
+		super().__init__(registry, "fallback")
 
 	def __repr__(self):
 		return "<FallbackRule>"
