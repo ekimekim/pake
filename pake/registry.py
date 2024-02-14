@@ -113,5 +113,7 @@ class Registry:
 		self.state.save()
 
 	def get_result(self, target):
-		"""Get the most recent result for the given target, even if it is out of date."""
-		return self.state.data[target]["result"]
+		"""Get the most recent result for the given target, even if it is out of date.
+		Returns None if not previously built.
+		"""
+		return self.state.data[target]["result"] if target in self.state.data else None

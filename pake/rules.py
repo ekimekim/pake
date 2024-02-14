@@ -27,6 +27,9 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		Must be passed the result of a call to match().
 	target(match): Returns the canonical target name of a target previously matched by a call
 		to match. Must be passed the result of the match() call.
+	needs_update(match, old_result): Returns True if the target needs to be updated even if all deps match
+		(eg. because the file has changed on disk). Must be passed the result of the match() call.
+		old_result is the cached result that we are potentially invalidating, or None if not cached.
 	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
 		Must be passed the result of a call to match() and a call to deps().
 		Normal rules return the hash of the built filepath. Virtual rules may return
@@ -101,7 +104,14 @@ class Rule:
 			# so that any change in how dep is specified causes a rebuild.
 			inputs[dep] = rule.update(dep_match, _cycle_check = _cycle_check + (target,))
 
-		if self.registry.needs_update(target, inputs):
+		# Always rebuild if deps have changed, but also ask the rule to do other checks
+		# (eg. rebuild if the file hash does not match).
+		needs_update = self.registry.needs_update(target, inputs)
+		if not needs_update:
+			result = self.registry.get_result(target)
+			needs_update = self.needs_update(match, result)
+
+		if needs_update:
 			try:
 				result = self.run(match, deps)
 			except BuildError:
@@ -116,7 +126,7 @@ class Rule:
 
 
 class AlwaysRule(Rule):
-	"""A special-cased do-nothing rule which always returns a unique string,
+	"""A do-nothing rule which always returns a unique string,
 	forcing any dependent to always be rebuilt."""
 	# Is fundamental and will break things if overriden, always go first
 	PRIORITY = float("-inf")
@@ -130,7 +140,16 @@ class AlwaysRule(Rule):
 	def match(self, target):
 		return target if target == "always" else None
 
-	def update(self, match, _cycle_check=()):
+	def target(self, match):
+		return match
+
+	def deps(self, match):
+		return []
+
+	def needs_update(self, match, result):
+		return True
+
+	def run(self, match, deps):
 		return unique()
 
 
@@ -154,7 +173,11 @@ class FallbackRule(Rule):
 		return match
 
 	def deps(self, match):
-		return ["always"]
+		return []
+
+	def needs_update(self, match, result):
+		# We could hash the file here and compare it, but that's the same thing as running anyway.
+		return True
 
 	def run(self, match, deps):
 		try:
@@ -190,6 +213,9 @@ class VirtualRule(Rule):
 	def deps(self, match):
 		return self._deps
 
+	def needs_update(self, match, result):
+		return False
+
 	def run(self, match, deps):
 		return self.recipe(deps)
 
@@ -215,6 +241,12 @@ class TargetRule(Rule):
 
 	def deps(self, match):
 		return self._deps
+
+	def needs_update(self, match, result):
+		try:
+			return hash_file(match) != result
+		except FileNotFoundError:
+			return True
 
 	def run(self, match, deps):
 		self.recipe(match, deps)
@@ -245,6 +277,12 @@ class PatternRule(Rule):
 
 	def deps(self, match):
 		return [match.expand(dep) for dep in self._deps]
+
+	def needs_update(self, match, result):
+		try:
+			return hash_file(self.target(match)) != result
+		except FileNotFoundError:
+			return True
 
 	def run(self, match, deps):
 		target = self.target(match)
