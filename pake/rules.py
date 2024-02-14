@@ -58,7 +58,10 @@ def hash_file(filepath):
 		hash = sha256()
 		with open(filepath, "rb") as f:
 			# stream in 64KiB chunks to avoid excessive memory usage
-			for chunk in f.read(64 * 1024):
+			while True:
+				chunk = f.read(64 * 1024)
+				if not chunk:
+					break
 				hash.update(chunk)
 	return hash.hexdigest()
 
