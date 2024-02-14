@@ -72,6 +72,7 @@ class Registry:
 			"run": cmd.run,
 			"shell": cmd.shell,
 			"find": cmd.find,
+			"write": cmd.write,
 		}
 		with open(pakefile) as f:
 			source = f.read()

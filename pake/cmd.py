@@ -367,3 +367,12 @@ def match_files(regex, path="."):
 			if regex.match(fullname):
 				results.append(fullname)
 	return results
+
+def write(path, contents, newline=True):
+	"""Write file contents to given path, by default with a trailing newline"""
+	if isinstance(contents, str):
+		contents = contents.encode()
+	with open(path, "wb") as f:
+		f.write(contents)
+		if newline:
+			f.write(b"\n")
