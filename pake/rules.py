@@ -64,16 +64,14 @@ def hash_file(filepath):
 
 
 def normalize_path(filepath):
-	if isinstance(filepath, str):
-		filepath = filepath.encode()
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
-	if path.startswith(b"../"):
+	if path.startswith("../"):
 		raise ValueError(f"Target cannot be outside current directory: {filepath!r}")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
-	return b"./" + path
+	return f"./{path}"
 
 
 class Rule:
@@ -95,10 +93,10 @@ class Rule:
 
 		inputs = {}
 		for dep in deps:
-			rule, match = self.registry.resolve(dep)
+			rule, dep_match = self.registry.resolve(dep)
 			# Note we are intentionally not using the canonical target of dep,
 			# so that any change in how dep is specified causes a rebuild.
-			inputs[dep] = rule.update(match, _cycle_check = _cycle_check + (target,))
+			inputs[dep] = rule.update(dep_match, _cycle_check = _cycle_check + (target,))
 
 		if self.registry.needs_update(target, inputs):
 			try:
@@ -129,7 +127,7 @@ class AlwaysRule(Rule):
 	def match(self, target):
 		return target if target == "always" else None
 
-	def update(self, match):
+	def update(self, match, _cycle_check=()):
 		return unique()
 
 
