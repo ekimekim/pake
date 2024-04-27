@@ -85,8 +85,7 @@ class Registry:
 			"virtual": rules.as_decorator(self, rules.VirtualRule),
 			"target": rules.as_decorator(self, rules.TargetRule),
 			"pattern": rules.as_decorator(self, rules.PatternRule),
-			# Apply registry as first arg to group() while preserving name and docstring
-			"group": functools.wraps(rules.group)(functools.partial(rules.group, self)),
+			"group": rules.with_registry(self, rules.group),
 			"cmd": cmd.cmd,
 			"sudo": cmd.sudo,
 			"run": cmd.run,

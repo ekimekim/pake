@@ -337,3 +337,8 @@ def as_decorator(registry, rule_type):
 			return rule_type(registry, fn, *args, **kwargs)
 		return decorator
 	return decorator_factory
+
+
+def with_registry(registry, fn):
+	"""Wrap a function. The wrapper automatically provides the registry as the first arg."""
+	return functools.wraps(fn)(functools.partial(fn, registry))
