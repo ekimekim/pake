@@ -99,17 +99,18 @@ class Command:
 		else:
 			return proc
 
-	def get_output(self, error_on_failure=True, bytes=False):
-		"""Like run(), executes the command. Unlike run, returns stdout as a string
-		(or byte string if bytes=True).
+	def get_output(self, error_on_failure=True, raw=False):
+		"""Like run(), executes the command. Unlike run, returns stdout as a string.
 		*Note this overrides any configured stdout behaviour*.
+		By default, will return a string with stripped whitespace.
+		If raw=True, returns a bytes with no additional processing.
 		By default, will raise an error if the command exits non-zero.
 		If error_on_failure = False, instead returns subprocess.CompletedProcess.
 		"""
 		proc = self.stdout(subprocess.PIPE)._run()
 		if error_on_failure:
 			proc.check_returncode()
-			return proc.stdout if bytes else proc.stdout.decode()
+			return proc.stdout if raw else proc.stdout.decode().strip()
 		else:
 			return proc
 
@@ -228,9 +229,10 @@ class Pipeline:
 		procs = self._run(error_on_failure)
 		return procs if error_on_failure == "never" else None
 
-	def get_output(self, error_on_failure="last", bytes=False):
+	def get_output(self, error_on_failure="last", raw=False):
 		"""As run(), but captures stdout of the last command and returns it.
-		Returns a decoded string unless bytes=True.
+		By default, will return a string with stripped whitespace.
+		If raw=True, returns a bytes with no additional processing.
 		*Note this overrides any configured stdout behaviour*.
 		If error_on_failure = "never", returns a list of subprocess.CompletedProcess.
 			In this case you can access the stdout via `result[-1].stdout`.
@@ -238,10 +240,10 @@ class Pipeline:
 		procs = self.stdout(subprocess.PIPE)._run(error_on_failure)
 		if error_on_failure == "never":
 			return procs
-		elif bytes:
+		elif raw:
 			return procs[-1].stdout
 		else:
-			return procs[-1].stdout.decode()
+			return procs[-1].stdout.decode().strip()
 
 	def run_nonblocking(self):
 		"""Executes the pipeline, but instead of blocking until completed, it returns immediately,
@@ -364,7 +366,7 @@ def find(path, *args):
 	"""
 	if len(args) > 0:
 		args = ("(",) + args + (")",)
-	return cmd("find", path, *args, "-print0").get_output().split("\0")
+	return cmd("find", path, *args, "-print0").get_output().strip("\0").split("\0")
 
 def match_files(regex, path="."):
 	"""Returns a list of all files under the given path that match the given regex."""
