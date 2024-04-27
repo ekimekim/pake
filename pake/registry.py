@@ -29,7 +29,7 @@ class State:
 			try:
 				fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 			except BlockingIOError:
-				raise PakeError(f"The state file {self.path!r} is locked - is another instance of pake running?")
+				raise PakeError(f"The state file {self.path!r} is locked - is another instance of pake running?") from None
 			# There is a race condition where we open a file, it gets overwritten with a new version,
 			# and then the old version's lock is released so our lock succeeds.
 			# We detect this condition by re-checking the filepath still refers to the same file.

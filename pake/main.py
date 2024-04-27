@@ -1,6 +1,7 @@
 
 import sys
 import os
+import traceback
 
 from .registry import Registry
 from .rules import FallbackRule
@@ -31,4 +32,6 @@ def main(*targets, pakefile=None, statefile=".pake-state", force=False):
 
 	except PakeError as e:
 		print(e, file=sys.stderr)
+		if e.__cause__ is not None:
+			traceback.print_exception(e.__cause__)
 		sys.exit(1)

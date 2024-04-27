@@ -6,7 +6,7 @@ import traceback
 from hashlib import sha256
 from uuid import uuid4
 
-from .exceptions import BuildError
+from .exceptions import BuildError, RuleError
 
 
 """API for declaring dependencies and build rules
@@ -113,8 +113,7 @@ class Rule:
 		has_cycle = target in _target_chain
 		_target_chain += (target,)
 		if has_cycle:
-			cycle = " -> ".join(map(repr, _cycle_check))
-			raise BuildError(f"Dependency cycle detected: {cycle}")
+			raise BuildError(_target_chain, f"Dependency cycle detected")
 
 		inputs = {}
 		for dep in deps:
@@ -135,12 +134,11 @@ class Rule:
 		if needs_update:
 			try:
 				result = self.run(match, inputs)
-			except BuildError:
-				raise
-			except Exception:
-				raise BuildError(
-					f"Exception in recipe while building {target!r}:\n{traceback.format_exc().strip()}"
-				)
+			except RuleError as e:
+				raise BuildError(_target_chain, str(e)) from None
+			except Exception as e:
+				# raise ... from e will include e's traceback in the output
+				raise BuildError(_target_chain, "Recipe raised exception") from e
 			self.registry.save_result(target, inputs, result)
 
 		return self.registry.get_result(target)
@@ -209,11 +207,11 @@ class FallbackRule(Rule):
 	def run(self, match, deps):
 		target, error = match
 		if error:
-			raise BuildError(f"{target!r} is not a valid filepath ({e}) and no rule by that name exists")
+			raise RuleError(f"{target!r} is not a valid filepath ({e}) and no rule by that name exists")
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
-			raise BuildError(f"{target} does not exist and there is no rule to create it")
+			raise RuleError(f"File does not exist and there is no rule to create it")
 
 
 class VirtualRule(Rule):
@@ -267,7 +265,7 @@ class FileRule(Rule):
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
-			raise BuildError(f"Recipe for {match} ran successfully but did not create the file")
+			raise RuleError(f"Recipe for {match} ran successfully but did not create the file")
 
 
 class TargetRule(FileRule):
