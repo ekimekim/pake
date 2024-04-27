@@ -308,6 +308,15 @@ class PatternRule(FileRule):
 		return self.update(match, force=force)
 
 
+def group(registry, name, deps):
+	"""A helper for making a "group" rule, which is a virtual rule which does nothing but
+	reference a list of dependencies. Dependents will be rebuilt if any of the dependencies change."""
+	def collect_dep_results(deps):
+		"""Returns a combination of all dep names and results"""
+		return {dep: registry.get_result(dep) for dep in deps}
+	return VirtualRule(registry, collect_dep_results, name, deps)
+
+
 def as_decorator(registry, rule_type):
 	"""
 	For a given Rule class, creators a decorator-style contructor:

@@ -1,5 +1,6 @@
 
 import fcntl
+import functools
 import json
 import logging
 import os
@@ -84,6 +85,8 @@ class Registry:
 			"virtual": rules.as_decorator(self, rules.VirtualRule),
 			"target": rules.as_decorator(self, rules.TargetRule),
 			"pattern": rules.as_decorator(self, rules.PatternRule),
+			# Apply registry as first arg to group() while preserving name and docstring
+			"group": functools.wraps(rules.group)(functools.partial(rules.group, self)),
 			"cmd": cmd.cmd,
 			"sudo": cmd.sudo,
 			"run": cmd.run,
