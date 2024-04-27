@@ -320,8 +320,10 @@ def group(registry, name, deps):
 
 def default(registry, rule):
 	"""Helper to create a group rule named "default" that has the given rule as a dependency.
-	Intended to be used as a decorator on another rule as an easy way of marking it as the default rule."""
-	group(registry, "default", [rule])
+	Intended to be used as a decorator on another rule as an easy way of marking it as the default rule.
+	The other rule must not be a pattern rule since it doesn't have an unambiguous target.
+	"""
+	group(registry, "default", [rule.name])
 	return rule
 
 
