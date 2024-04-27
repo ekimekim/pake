@@ -103,12 +103,14 @@ class Rule:
 	def __repr__(self):
 		return f"<{type(self).__name__}({self.name!r})>"
 
-	def update(self, match, force=False, _cycle_check=()):
+	def update(self, match, force=False, _target_chain=()):
 		deps = self.deps(match)
 		target = self.target(match)
 
-		if target in _cycle_check:
-			cycle = " -> ".join(map(repr, _cycle_check + (target,)))
+		has_cycle = target in _target_chain
+		_target_chain += (target,)
+		if has_cycle:
+			cycle = " -> ".join(map(repr, _cycle_check))
 			raise BuildError(f"Dependency cycle detected: {cycle}")
 
 		inputs = {}
@@ -116,7 +118,7 @@ class Rule:
 			rule, dep_match = self.registry.resolve(dep)
 			# Note we are intentionally not using the canonical target of dep,
 			# so that any change in how dep is specified causes a rebuild.
-			inputs[dep] = rule.update(dep_match, force=force, _cycle_check = _cycle_check + (target,))
+			inputs[dep] = rule.update(dep_match, force=force, _target_chain=_target_chain)
 
 		# Always rebuild if deps have changed, but also ask the rule to do other checks
 		# (eg. rebuild if the file hash does not match).
