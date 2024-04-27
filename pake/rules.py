@@ -261,7 +261,7 @@ class FileRule(Rule):
 
 	def run(self, match, deps):
 		target = self.target(match)
-		self.recipe(target, deps)
+		self._run(target, deps, match)
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
@@ -296,6 +296,9 @@ class TargetRule(FileRule):
 	def deps(self, match):
 		return self._deps
 
+	def _run(self, target, deps, match):
+		return self.recipe(target, deps)
+
 	def __call__(self, force=False):
 		return self.update(self.match(self.filepath), force=force)
 
@@ -325,6 +328,9 @@ class PatternRule(FileRule):
 
 	def deps(self, match):
 		return [match.expand(dep) for dep in self._deps]
+
+	def _run(self, target, deps, match):
+		return self.recipe(target, deps, match)
 
 	def __call__(self, target, force=False):
 		match = self.match(target)
