@@ -30,11 +30,22 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 	needs_update(match, old_result): Returns True if the target needs to be updated even if all deps match
 		(eg. because the file has changed on disk). Must be passed the result of the match() call.
 		old_result is the cached result that we are potentially invalidating, or None if not cached.
+		Note this means we can't distinguish between not being cached and a result of None.
+		This isn't a problem in practice as the only rule types that use old_result will
+		never return None.
 	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
 		Must be passed the result of a call to match() and a call to deps().
 		Normal rules return the hash of the built filepath. Virtual rules may return
 		other values, which must be JSONable (lists, dicts, strings, numbers, bools, None)
-		and should be small. The unique() function will give you a value to return that is
+		and should be small. Dependents will only be re-run if the value has changed.
+		So for example:
+		- Always returning a constant value (eg. None) indicates this target has no output
+		  or its output is always the same, as long as it's up to date. This is suitable
+		  for true "phony" targets which you just want to trigger for side effects,
+		  and don't actually provide further input to its dependents.
+		- If you returned the current date, your dependents would only be cached if their previous
+		  build was from the same day.
+		The unique() function will give you a value to return that is
 		suitable to indicate "my dependents should always update if I have been updated".
 	update(match):
 		First ensures all its dependencies are up to date
