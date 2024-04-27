@@ -225,7 +225,21 @@ class VirtualRule(Rule):
 		return self.update(self.match(self.name), force=force)
 
 
-class TargetRule(Rule):
+class FileRule(Rule):
+	"""Common base class for rules that build a file."""
+	def needs_update(self, match, result):
+		try:
+			return hash_file(self.target(match)) != result
+		except FileNotFoundError:
+			return True
+
+	def run(self, match, deps):
+		target = self.target(match)
+		self.recipe(target, deps)
+		return hash_file(target)
+
+
+class TargetRule(FileRule):
 	"""Basic rule for a single target filepath.
 	Recipe is called with filepath to build and list of deps.
 	"""
@@ -247,21 +261,11 @@ class TargetRule(Rule):
 	def deps(self, match):
 		return self._deps
 
-	def needs_update(self, match, result):
-		try:
-			return hash_file(match) != result
-		except FileNotFoundError:
-			return True
-
-	def run(self, match, deps):
-		self.recipe(match, deps)
-		return hash_file(match)
-
 	def __call__(self, force=False):
 		return self.update(self.match(self.filepath), force=force)
 
 
-class PatternRule(Rule):
+class PatternRule(FileRule):
 	"""A rule that builds filepaths matching a regex.
 	Deps may contain pattern replacements (eg. "\1.o" where the pattern is ".*\.c").
 	Keep in mind that patterns are based on whole filepaths, not just the filename.
@@ -282,17 +286,6 @@ class PatternRule(Rule):
 
 	def deps(self, match):
 		return [match.expand(dep) for dep in self._deps]
-
-	def needs_update(self, match, result):
-		try:
-			return hash_file(self.target(match)) != result
-		except FileNotFoundError:
-			return True
-
-	def run(self, match, deps):
-		target = self.target(match)
-		self.recipe(target, deps)
-		return hash_file(target)
 
 	def __call__(self, target, force=False):
 		match = self.match(target)
