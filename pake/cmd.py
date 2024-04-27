@@ -99,8 +99,9 @@ class Command:
 		else:
 			return proc
 
-	def get_output(self, error_on_failure=True):
-		"""Like run(), executes the command. Unlike run, returns stdout as a byte string.
+	def get_output(self, error_on_failure=True, bytes=False):
+		"""Like run(), executes the command. Unlike run, returns stdout as a string
+		(or byte string if bytes=True).
 		*Note this overrides any configured stdout behaviour*.
 		By default, will raise an error if the command exits non-zero.
 		If error_on_failure = False, instead returns subprocess.CompletedProcess.
@@ -108,7 +109,7 @@ class Command:
 		proc = self.stdout(subprocess.PIPE)._run()
 		if error_on_failure:
 			proc.check_returncode()
-			return proc.stdout
+			return proc.stdout if bytes else proc.stdout.decode()
 		else:
 			return proc
 
@@ -227,14 +228,20 @@ class Pipeline:
 		procs = self._run(error_on_failure)
 		return procs if error_on_failure == "never" else None
 
-	def get_output(self, error_on_failure="last"):
+	def get_output(self, error_on_failure="last", bytes=False):
 		"""As run(), but captures stdout of the last command and returns it.
+		Returns a decoded string unless bytes=True.
 		*Note this overrides any configured stdout behaviour*.
 		If error_on_failure = "never", returns a list of subprocess.CompletedProcess.
 			In this case you can access the stdout via `result[-1].stdout`.
 		"""
 		procs = self.stdout(subprocess.PIPE)._run(error_on_failure)
-		return procs if error_on_failure == "never" else procs[-1].stdout
+		if error_on_failure == "never":
+			return procs
+		elif bytes:
+			return procs[-1].stdout
+		else:
+			return procs[-1].stdout.decode()
 
 	def run_nonblocking(self):
 		"""Executes the pipeline, but instead of blocking until completed, it returns immediately,
