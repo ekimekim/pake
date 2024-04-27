@@ -9,7 +9,7 @@ IMAGE_DIR = "docker"
 REPO = "example.com/myimage"
 
 # Generate the image tag from the current commit
-@virtual(deps=["always"])
+@always()
 def tag(deps):
 	commit = git("rev-parse", "HEAD").get_output()
 	return f"{REPO}:{commit}"

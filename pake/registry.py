@@ -85,6 +85,7 @@ class Registry:
 			"virtual": rules.as_decorator(self, rules.VirtualRule),
 			"target": rules.as_decorator(self, rules.TargetRule),
 			"pattern": rules.as_decorator(self, rules.PatternRule),
+			"always": rules.as_decorator(self, rules.always),
 			"group": rules.with_registry(self, rules.group),
 			"default": rules.with_registry(self, rules.default),
 			"cmd": cmd.cmd,
