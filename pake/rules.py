@@ -82,13 +82,16 @@ def hash_file(filepath):
 
 
 def normalize_path(filepath):
+	"""Normalize to ./path, or raise ValueError"""
 	if filepath == "":
-		raise BuildError("Target cannot be empty string")
+		raise ValueError("cannot be empty string")
+	if "\0" in filepath:
+		raise ValueError("may not contain null bytes")
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
 	if path.startswith("../"):
-		raise BuildError(f"Target cannot be outside current directory: {filepath!r}")
+		raise ValueError(f"cannot be outside current directory")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
 	return f"./{path}"
@@ -172,7 +175,7 @@ class AlwaysRule(Rule):
 
 
 class FallbackRule(Rule):
-	"""The rule that is used for any filepaths that otherwise don't have a matching rule.
+	"""The rule that is used for any targets that otherwise don't have a matching rule.
 	It returns the hash of the file if it exists, or errors otherwise.
 	"""
 	# Matches anything, always go last
@@ -185,10 +188,16 @@ class FallbackRule(Rule):
 		return "<FallbackRule>"
 
 	def match(self, target):
-		return normalize_path(target)
+		"""Always matches, but determines if this is a valid filepath first.
+		Returns (target, error) where error is None for valid files."""
+		try:
+			return (normalize_path(target), None)
+		except ValueError as e:
+			return (target, e)
 
 	def target(self, match):
-		return match
+		target, error = match
+		return target
 
 	def deps(self, match):
 		return []
@@ -198,10 +207,13 @@ class FallbackRule(Rule):
 		return True
 
 	def run(self, match, deps):
+		target, error = match
+		if error:
+			raise BuildError(f"{target!r} is not a valid filepath ({e}) and no rule by that name exists")
 		try:
-			return hash_file(match)
+			return hash_file(target)
 		except FileNotFoundError:
-			raise BuildError(f"{match} does not exist and there is no rule to create it")
+			raise BuildError(f"{target} does not exist and there is no rule to create it")
 
 
 class VirtualRule(Rule):
@@ -267,11 +279,17 @@ class TargetRule(FileRule):
 	def __init__(self, registry, recipe, filepath, deps=[]):
 		super().__init__(registry, filepath)
 		self.recipe = recipe
-		self.filepath = normalize_path(filepath)
+		try:
+			self.filepath = normalize_path(filepath)
+		except ValueError as e:
+			raise ValueError(f"Invalid filepath for target rule: {e}") from None
 		self._deps = deps
 
 	def match(self, target):
-		filepath = normalize_path(target)
+		try:
+			filepath = normalize_path(target)
+		except ValueError:
+			return None
 		return filepath if self.filepath == filepath else None
 
 	def target(self, match):
@@ -298,7 +316,11 @@ class PatternRule(FileRule):
 		self._deps = deps
 
 	def match(self, target):
-		return self.pattern.match(normalize_path(target))
+		try:
+			filepath = normalize_path(target)
+		except ValueError:
+			return None
+		return self.pattern.match(filepath)
 
 	def target(self, match):
 		return match.string
