@@ -3,6 +3,7 @@ import fcntl
 import json
 import logging
 import os
+from bisect import insort_right
 from uuid import uuid4
 
 from . import rules, cmd
@@ -110,8 +111,8 @@ class Registry:
 		raise AssertionError("No rules matched (not even fallback rule)")
 
 	def register(self, rule):
-		self.rules.append(rule)
-		self.rules.sort(key=lambda rule: rule.PRIORITY)
+		# insort_right() will preserve insertion order of equal-priority rules
+		insort_right(self.rules, rule, key=lambda rule: rule.PRIORITY)
 
 	def needs_update(self, target, inputs):
 		"""Compare inputs to previously-recorded inputs for target,
