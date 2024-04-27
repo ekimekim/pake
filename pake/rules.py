@@ -275,7 +275,7 @@ class FileRule(Rule):
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
-			raise RuleError(f"Recipe for {match} ran successfully but did not create the file")
+			raise RuleError(f"Recipe ran successfully but did not create the file")
 
 
 class TargetRule(FileRule):
