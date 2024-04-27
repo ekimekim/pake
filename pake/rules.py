@@ -269,7 +269,7 @@ class TargetRule(FileRule):
 
 
 class PatternRule(FileRule):
-	"""A rule that builds filepaths matching a regex.
+	r"""A rule that builds filepaths matching a regex.
 	Deps may contain pattern replacements (eg. "\1.o" where the pattern is ".*\.c").
 	Keep in mind that patterns are based on whole filepaths, not just the filename.
 	"""
