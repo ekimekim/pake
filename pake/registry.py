@@ -87,6 +87,7 @@ class Registry:
 			"pattern": rules.as_decorator(self, rules.PatternRule),
 			"always": rules.as_decorator(self, rules.always),
 			"group": rules.with_registry(self, rules.group),
+			"alias": rules.with_registry(self, rules.alias),
 			"default": rules.with_registry(self, rules.default),
 			"cmd": cmd.cmd,
 			"sudo": cmd.sudo,

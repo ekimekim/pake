@@ -342,12 +342,18 @@ def group(registry, name, deps):
 	return VirtualRule(registry, collect_dep_results, name, deps)
 
 
+def alias(registry, name, target):
+	"""A helper for making an "alias" rule, which is a virtual rule which does nothing but
+	reference a single other rule. It's equivalent to a group rule with one member."""
+	return group(registry, name, [target])
+
+
 def default(registry, rule):
 	"""Helper to create a group rule named "default" that has the given rule as a dependency.
 	Intended to be used as a decorator on another rule as an easy way of marking it as the default rule.
 	The other rule must not be a pattern rule since it doesn't have an unambiguous target.
 	"""
-	group(registry, "default", [rule.name])
+	alias(registry, "default", rule.name)
 	return rule
 
 
