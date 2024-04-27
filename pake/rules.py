@@ -325,7 +325,9 @@ class PatternRule(FileRule):
 	def __init__(self, registry, recipe, pattern, deps=[]):
 		super().__init__(registry, pattern)
 		self.recipe = recipe
-		self.pattern = re.compile(f"^({pattern})$")
+		# Allow leading "./" before match as we're feeding this normalized paths.
+		# Make sure to only use non-capture rules to avoid observable changes to group numbering.
+		self.pattern = re.compile(rf"^(?:\./)?(?:{pattern})$")
 		self._deps = deps
 
 	def match(self, target):
