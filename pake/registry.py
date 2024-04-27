@@ -94,6 +94,7 @@ class Registry:
 			"run": cmd.run,
 			"shell": cmd.shell,
 			"find": cmd.find,
+			"match_files": cmd.match_files,
 			"write": cmd.write,
 		}
 		with open(pakefile) as f:
