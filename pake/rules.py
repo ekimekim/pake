@@ -261,7 +261,12 @@ class FileRule(Rule):
 
 	def run(self, match, deps):
 		target = self.target(match)
+		# Create dir if needed
+		dirname = os.path.dirname(target)
+		os.makedirs(dirname, exist_ok=True)
+		# Dispatch to subclass to run recipe
 		self._run(target, deps, match)
+		# Hash the resulting file
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
@@ -271,6 +276,7 @@ class FileRule(Rule):
 class TargetRule(FileRule):
 	"""Basic rule for a single target filepath.
 	Recipe is called with filepath to build and list of deps.
+	The directory containing the target will be created if it doesn't exist.
 	"""
 	PRIORITY = 10 # Prefer simple rules over pattern rules
 
@@ -307,6 +313,7 @@ class PatternRule(FileRule):
 	r"""A rule that builds filepaths matching a regex.
 	Deps may contain pattern replacements (eg. "\1.c" where the pattern is ".*\.o").
 	Keep in mind that patterns are based on whole filepaths, not just the filename.
+	The directory containing the target will be created if it doesn't exist.
 	"""
 	PRIORITY = 20
 
