@@ -236,7 +236,10 @@ class FileRule(Rule):
 	def run(self, match, deps):
 		target = self.target(match)
 		self.recipe(target, deps)
-		return hash_file(target)
+		try:
+			return hash_file(target)
+		except FileNotFoundError:
+			raise BuildError(f"Recipe for {match} ran successfully but did not create the file")
 
 
 class TargetRule(FileRule):
