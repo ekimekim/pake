@@ -82,11 +82,13 @@ def hash_file(filepath):
 
 
 def normalize_path(filepath):
+	if filepath == "":
+		raise BuildError("Target cannot be empty string")
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
 	if path.startswith("../"):
-		raise ValueError(f"Target cannot be outside current directory: {filepath!r}")
+		raise BuildError(f"Target cannot be outside current directory: {filepath!r}")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
 	return f"./{path}"
