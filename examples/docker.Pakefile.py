@@ -22,11 +22,10 @@ def build(deps):
 
 # Push the image if either it has changed or the tag has.
 # Returns None since this is only executing for side effects.
+@default
 @virtual(deps=["build", "tag"])
 def push(deps):
 	image_id = registry.get_result("build")
 	tag = registry.get_result("tag")
 	docker("tag", image_id, tag).run()
 	docker("push", tag).run()
-
-group("default", ["push"])

@@ -317,6 +317,13 @@ def group(registry, name, deps):
 	return VirtualRule(registry, collect_dep_results, name, deps)
 
 
+def default(registry, rule):
+	"""Helper to create a group rule named "default" that has the given rule as a dependency.
+	Intended to be used as a decorator on another rule as an easy way of marking it as the default rule."""
+	group(registry, "default", [rule])
+	return rule
+
+
 def as_decorator(registry, rule_type):
 	"""
 	For a given Rule class, creators a decorator-style contructor:
