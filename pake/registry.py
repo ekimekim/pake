@@ -1,6 +1,7 @@
 
 import fcntl
 import json
+import logging
 import os
 from uuid import uuid4
 
@@ -17,16 +18,29 @@ class State:
 	def __init__(self, path):
 		self.path = path
 
-		# Open or create file. We create it if it doesn't exist so that we can take the lock.
-		# We keep it open to hold the lock.
-		self.file = open(self.path, "a+")
+		while True:
+			# Open or create file. We create it if it doesn't exist so that we can take the lock.
+			# We keep it open to hold the lock.
+			self.file = open(self.path, "a+")
+			# Obtain lock on file, preventing simultaneous usage.
+			# Unlocking is implicit when the file is later closed.
+			try:
+				fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+			except BlockingIOError:
+				raise PakeError(f"The state file {self.path!r} is locked - is another instance of pake running?")
+			# There is a race condition where we open a file, it gets overwritten with a new version,
+			# and then the old version's lock is released so our lock succeeds.
+			# We detect this condition by re-checking the filepath still refers to the same file.
+			old_stat = os.fstat(self.file.fileno())
+			new_stat = os.stat(self.path)
+			# (st_dev, st_ino) uniquely identifies a file
+			if (old_stat.st_dev, old_stat.st_ino) != (new_stat.st_dev, new_stat.st_ino):
+				logging.warning(f"State file {self.path!r} changed between open and lock, retrying")
+				self.file.close()
+				continue # retry
+			break # success
+
 		self.file.seek(0)
-		# Obtain lock on file, preventing simultaneous usage.
-		# Unlocking is implicit when the file is later closed.
-		try:
-			fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-		except BlockingIOError:
-			raise PakeError(f"The state file {self.path!r} is locked - is another instance of pake running?")
 		content = self.file.read()
 		if content == "":
 			# file was newly created
@@ -44,7 +58,9 @@ class State:
 		new_file.flush()
 		fcntl.flock(new_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 		os.rename(temp_path, self.path)
-		# since our old file is now un-openable, we can safely release the lock.
+		# Since our old file is now un-openable, we can safely release the lock.
+		# It's possible someone is still holding onto it from before the rename,
+		# but they'll check it again after locking and realise the file is different.
 		self.file.close()
 		# keep the lock on the new file by keeping it open
 		self.file = new_file
