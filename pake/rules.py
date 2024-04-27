@@ -107,13 +107,18 @@ class Rule:
 		return f"<{type(self).__name__}({self.name!r})>"
 
 	def update(self, match, force=False, _target_chain=()):
-		deps = self.deps(match)
 		target = self.target(match)
 
 		has_cycle = target in _target_chain
 		_target_chain += (target,)
 		if has_cycle:
-			raise BuildError(_target_chain, f"Dependency cycle detected")
+			raise BuildError(_target_chain, "Dependency cycle detected")
+
+		# This may fail if PatternRule expansions are invalid
+		try:
+			deps = self.deps(match)
+		except Exception as e:
+			raise BuildError(_target_chain, "Failed to determine dependencies") from e
 
 		inputs = {}
 		for dep in deps:
