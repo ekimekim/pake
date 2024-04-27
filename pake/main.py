@@ -20,14 +20,15 @@ def main(*targets, pakefile=None, statefile=".pake-state", force=False):
 		registry = Registry(statefile)
 		registry.load_pakefile(pakefile)
 
-		for target in targets:
-			registry.update(target, force=force)
-
 		if not targets:
 			default_rule, match = registry.resolve("default")
 			if isinstance(default_rule, FallbackRule):
 				raise PakeError("No targets given and no default target defined.")
-			default_rule.update(match)
+			targets = ["default"]
+
+		for target in targets:
+			registry.update(target, force=force)
+
 	except PakeError as e:
 		print(e, file=sys.stderr)
 		sys.exit(1)
