@@ -350,14 +350,14 @@ def shell(command, **env):
 	"""
 	return cmd(os.environ["SHELL"], "-c", command).env(**env)
 
-def find(*args):
-	"""Executes a `find(1)` command in the current directory with the given args used as test
+def find(path, *args):
+	"""Executes a `find(1)` command in the given directory with the given args used as test
 	predicates. The matching filenames are returned as a list. Example:
-		find("-type", "f", "-name" "*.txt")
+		find(".", "-type", "f", "-name" "*.txt")
 	"""
 	if len(args) > 0:
 		args = ("(",) + args + (")",)
-	return cmd("find", *args, "-print0").get_output().split("\0")
+	return cmd("find", path, *args, "-print0").get_output().split("\0")
 
 def match_files(regex, path="."):
 	"""Returns a list of all files under the given path that match the given regex."""
