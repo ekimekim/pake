@@ -66,8 +66,9 @@ def hash_file(filepath):
 	# we are generally interested in file contents.
 	# If the user wants to only consider a file changed if the actual symlink pointer changes,
 	# they can use a virtual rule that calls readlink.
+	filepath = filepath.encode()
 	if os.path.isdir(filepath):
-		hash = sha256("\0".join(sorted(os.listdir(filepath))))
+		hash = sha256(b"\0".join(sorted(os.listdir(filepath))))
 	else:
 		hash = sha256()
 		with open(filepath, "rb") as f:
