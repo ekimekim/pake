@@ -25,7 +25,7 @@ def build(deps):
 @default
 @virtual(deps=["build", "tag"])
 def push(deps):
-	image_id = registry.get_result("build")
-	tag = registry.get_result("tag")
+	image_id = deps["build"]
+	tag = deps["tag"]
 	docker("tag", image_id, tag).run()
 	docker("push", tag).run()

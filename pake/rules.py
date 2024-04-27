@@ -34,7 +34,7 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		This isn't a problem in practice as the only rule types that use old_result will
 		never return None.
 	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
-		Must be passed the result of a call to match() and a call to deps().
+		Is passed the result of a call to match() and a dict {dep: result} for each dep returned by deps().
 		Normal rules return the hash of the built filepath. Virtual rules may return
 		other values, which must be JSONable (lists, dicts, strings, numbers, bools, None)
 		and should be small. Dependents will only be re-run if the value has changed.
@@ -126,7 +126,7 @@ class Rule:
 
 		if needs_update:
 			try:
-				result = self.run(match, deps)
+				result = self.run(match, inputs)
 			except BuildError:
 				raise
 			except Exception:
