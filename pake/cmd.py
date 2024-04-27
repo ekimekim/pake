@@ -355,7 +355,9 @@ def find(*args):
 	predicates. The matching filenames are returned as a list. Example:
 		find("-type", "f", "-name" "*.txt")
 	"""
-	return cmd("find", "(", *args, ")", "-print0").get_output().split("\0")
+	if len(args) > 0:
+		args = ("(",) + args + (")",)
+	return cmd("find", *args, "-print0").get_output().split("\0")
 
 def match_files(regex, path="."):
 	"""Returns a list of all files under the given path that match the given regex."""
