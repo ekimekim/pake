@@ -100,7 +100,10 @@ class Registry:
 		with open(pakefile) as f:
 			source = f.read()
 		code = compile(source, pakefile, "exec")
-		exec(code, injected)
+		try:
+			exec(code, injected)
+		except Exception as e:
+			raise PakeError("Unhandled exception while loading Pakefile") from e
 
 	def update(self, target, force=False):
 		"""Build target and any dependencies (if they are not up to date) and return
