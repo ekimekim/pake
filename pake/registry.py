@@ -140,10 +140,22 @@ class Registry:
 
 	def needs_update(self, target, inputs):
 		"""Compare inputs to previously-recorded inputs for target,
-		and return True if the target needs updating (ie. if inputs differ)"""
+		and return a reason string if the target needs updating (ie. if inputs differ),
+		or else None.
+		"""
 		if target not in self.state.data:
-			return True
-		return self.state.data[target]["inputs"] != inputs
+			return "it is not present in the cache"
+		old_inputs = self.state.data[target]["inputs"]
+		# Test the basic condition first, to prevent logic errors
+		if old_inputs == inputs:
+			return None
+		if "always" in inputs:
+			return "it depends on the always target"
+		if set(old_inputs.keys()) != set(inputs.keys()):
+			return "the list of dependents has changed"
+		changed = [dep for dep in inputs if inputs[dep] != old_inputs[dep]]
+		assert changed, "Can't determine difference between old and new inputs"
+		return "its dependents changed: {}".format(", ".join(changed))
 
 	def save_result(self, target, inputs, result):
 		"""Save the new result for the given target, along with the inputs that were used."""

@@ -158,9 +158,7 @@ class Rule:
 		if force:
 			update_reason = "force was requested"
 		if update_reason is None:
-			needs_update = self.registry.needs_update(target, inputs)
-			if needs_update:
-				update_reason = "dependencies have changed"
+			update_reason = self.registry.needs_update(target, inputs)
 		if update_reason is None:
 			result = self.registry.get_result(target)
 			update_reason = self.needs_update(match, result)
