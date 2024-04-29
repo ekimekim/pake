@@ -2,7 +2,6 @@
 import functools
 import os
 import re
-import traceback
 from hashlib import sha256
 from uuid import uuid4
 
@@ -91,7 +90,7 @@ def normalize_path(filepath):
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
 	if path == ".." or path.startswith("../"):
-		raise ValueError(f"cannot be outside current directory")
+		raise ValueError("cannot be outside current directory")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
 	return f"./{path}"
@@ -148,8 +147,10 @@ class Rule:
 		inputs = {}
 		for dep in deps:
 			rule, dep_match = self.registry.resolve(dep)
-			# Note we are intentionally not using the canonical target of dep,
-			# so that any change in how dep is specified causes a rebuild.
+			# Note we are intentionally not using the canonical target of dep.
+			# This means any change in how dep is specified causes a rebuild,
+			# but conversely that the deps dict passed to the recipe matches the
+			# dep string the rule specified, eg. "foo.txt" not "./foo.txt"
 			inputs[dep] = rule.update(dep_match, force=force, _target_chain=_target_chain)
 
 		# Always rebuild if deps have changed, but also ask the rule to do other checks
@@ -241,7 +242,7 @@ class FallbackRule(Rule):
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
-			raise RuleError(f"File does not exist and there is no rule to create it")
+			raise RuleError("File does not exist and there is no rule to create it")
 
 
 class VirtualRule(Rule):
@@ -300,7 +301,7 @@ class FileRule(Rule):
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
-			raise RuleError(f"Recipe ran successfully but did not create the file")
+			raise RuleError("Recipe ran successfully but did not create the file")
 
 
 class TargetRule(FileRule):

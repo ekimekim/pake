@@ -1,6 +1,5 @@
 
 import fcntl
-import functools
 import json
 import logging
 import os
