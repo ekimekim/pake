@@ -3,7 +3,6 @@ import functools
 import os
 import re
 from hashlib import sha256
-from uuid import uuid4
 
 from .exceptions import BuildError, RuleError, chain_str
 from .verbose_print import verbose_print
@@ -46,17 +45,13 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		  and don't actually provide further input to its dependents.
 		- If you returned the current date, your dependents would only be cached if their previous
 		  build was from the same day.
-		The unique() function will give you a value to return that is
+		The registry.unique() function will give you a value to return that is
 		suitable to indicate "my dependents should always update if I have been updated".
 	update(match):
 		First ensures all its dependencies are up to date
 		then calls run() if not up to date and caches it.
 		Finally, it returns the result of run(), which may have been cached.
 """
-
-
-def unique():
-	return f"unique:{uuid4()}"
 
 
 def hash_file(filepath):
@@ -211,7 +206,7 @@ class AlwaysRule(Rule):
 		return "the always target is never cached"
 
 	def run(self, match, deps):
-		return unique()
+		return self.registry.unique()
 
 
 class FallbackRule(Rule):

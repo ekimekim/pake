@@ -79,6 +79,8 @@ class Registry:
 		self.rules = []
 		rules.AlwaysRule(self)
 		rules.FallbackRule(self)
+		# This is used for providing a unique-per-invocation result
+		self.unique_token = f"unique/uniq:{uuid4()}"
 
 	def load_pakefile(self, pakefile):
 		injected = {
@@ -156,3 +158,8 @@ class Registry:
 		Returns None if not previously built.
 		"""
 		return self.state.data[target]["result"] if target in self.state.data else None
+
+	def unique(self):
+		"""Returns a unique string per invocation of Pake. This can be returned from virtual targets
+		to always invalidate their dependents."""
+		return self.unique_token
