@@ -90,7 +90,7 @@ def normalize_path(filepath):
 	# relpath normalizes components (eg. "foo//bar/.." -> "foo") and leaves us with only two
 	# cases: "../PATH" and "PATH".
 	path = os.path.relpath(filepath)
-	if path.startswith("../"):
+	if path == ".." or path.startswith("../"):
 		raise ValueError(f"cannot be outside current directory")
 	# We want paths to always have a ./ prefix as this allows us to dismabiguate them from
 	# virtual targets.
@@ -212,7 +212,7 @@ class FallbackRule(Rule):
 	def run(self, match, deps):
 		target, error = match
 		if error:
-			raise RuleError(f"{target!r} is not a valid filepath ({e}) and no rule by that name exists")
+			raise RuleError(f"{target!r} is not a valid filepath ({error}) and no rule by that name exists")
 		try:
 			return hash_file(target)
 		except FileNotFoundError:
