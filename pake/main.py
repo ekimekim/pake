@@ -3,10 +3,17 @@ import sys
 import os
 import traceback
 
+import argh
+
 from .registry import Registry
 from .rules import FallbackRule
 from .exceptions import PakeError
 
+@argh.arg("targets", help="Target names to build. Defaults to the 'default' target.")
+@argh.arg("--pakefile", "-f", help="Pakefile filename. Defaults to Pakefile or Pakefile.py")
+@argh.arg("--statefile", help="Filepath to store cache state")
+@argh.arg("--force", help="Rebuild everything even if we think we don't need to")
+@argh.arg("--graph", help="Instead of building given targets, show a dependency graph")
 def main(*targets, pakefile=None, statefile=".pake-state", force=False, graph=False):
 	try:
 		if pakefile is None:
