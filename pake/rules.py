@@ -33,6 +33,8 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		Note this means we can't distinguish between not being cached and a result of None.
 		This isn't a problem in practice as the only rule types that use old_result will
 		never return None.
+		If you return empty string as the reason, an update is done but the message saying why
+		is suppressed. This makes sense for some internal-details rules like AlwaysRule and FallbackRule.
 	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
 		Is passed the result of a call to match() and a dict {dep: result} for each dep returned by deps().
 		Normal rules return the hash of the built filepath. Virtual rules may return
@@ -166,7 +168,8 @@ class Rule:
 		if update_reason is None:
 			verbose_print(1, f"{chain_str(_target_chain)}: Using cached result")
 		else:
-			verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
+			if update_reason != "":
+				verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
 			try:
 				result = self.run(match, inputs)
 			except RuleError as e:
@@ -205,7 +208,7 @@ class AlwaysRule(Rule):
 		return []
 
 	def needs_update(self, match, result):
-		return "the always target is never cached"
+		return ""
 
 	def run(self, match, deps):
 		return self.registry.unique()
@@ -241,7 +244,7 @@ class FallbackRule(Rule):
 
 	def needs_update(self, match, result):
 		# We could hash the file here and compare it, but that's the same thing as running anyway.
-		return "it does not match any rule"
+		return ""
 
 	def run(self, match, deps):
 		target, error = match
