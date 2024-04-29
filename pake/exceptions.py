@@ -3,6 +3,10 @@ class PakeError(Exception):
 	"""General exception that should be reported to the user"""
 
 
+def chain_str(chain):
+	return " -> ".join(chain)
+
+
 class BuildError(PakeError):
 	"""
 	A failure while building or resolving dependencies.
@@ -12,11 +16,8 @@ class BuildError(PakeError):
 		self.target_chain = target_chain
 		self.message = message
 
-	def chain_str(self):
-		return " -> ".join(self.target_chain)
-
 	def __str__(self):
-		return f"{self.chain_str()}: {self.message}"
+		return f"{chain_str(self.target_chain)}: {self.message}"
 
 
 class RuleError(PakeError):

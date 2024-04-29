@@ -1,5 +1,6 @@
 
 import fcntl
+import functools
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from uuid import uuid4
 
 from . import rules, cmd
 from .exceptions import PakeError
+from .verbose_print import verbose_print
 
 
 class State:
@@ -95,6 +97,7 @@ class Registry:
 			"find": cmd.find,
 			"match_files": cmd.match_files,
 			"write": cmd.write,
+			"log": functools.partial(verbose_print, 2),
 		}
 		with open(pakefile) as f:
 			source = f.read()
@@ -122,7 +125,10 @@ class Registry:
 		"""Find and return the rule that matches target"""
 		for rule in self.rules:
 			match = rule.match(target)
-			if match is not None:
+			if match is None:
+				verbose_print(3, f"Resolving target {target!r}: {rule} does not match")
+			else:
+				verbose_print(3, f"Resolving target {target!r}: {rule} matched")
 				return rule, match
 		raise AssertionError("No rules matched (not even fallback rule)")
 

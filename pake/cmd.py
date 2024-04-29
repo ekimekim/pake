@@ -3,6 +3,9 @@ import re
 import subprocess
 import sys
 import threading
+from shlex import quote # only used for pretty-printing
+
+from .verbose_print import verbose_print
 
 """Provides a builder for running child processes in an ergonomic way."""
 
@@ -28,6 +31,44 @@ class Command:
 
 	def __repr__(self):
 		return f"<Command {self._args} {self._env}>"
+
+	def __str__(self):
+		# Attempt to construct the equivalent shell command
+		result = " ".join(quote(arg) for arg in self._args)
+
+		if self._env:
+			env = " ".join(f"{quote(k)}={quote(v)}" for k, v in self._env.items())
+			result = f"{env} {result}"
+
+		def format_file(value):
+			if isinstance(value, str):
+				return quote(value)
+			elif isinstance(value, bytes):
+				return "[bytes]"
+			elif value is None:
+				return "/dev/null"
+			elif value == subprocess.PIPE:
+				return "[pipe]"
+			else:
+				return "[file]"
+
+		if self._stdin[0] == "data":
+			result = f'{result} < """{self._stdin[1]}"""'
+		elif self._stdin[1] != sys.stdin:
+			result = f"{result} < {format_file(self._stdin[1])}"
+
+		if self._stdout != sys.stdout:
+			result = f"{result} > {format_file(self._stdout)}"
+
+		if self._stderr == subprocess.STDOUT:
+			result = f"{result} 2>&1"
+		elif self._stderr != sys.stderr:
+			result = f"{result} 2> {format_file(self._stderr)}"
+
+		if self._workdir != ".":
+			result = f"(cd {quote(self._workdir)} && {result})"
+
+		return result
 
 	def _copy(self, **updates):
 		new = Command()
@@ -114,14 +155,14 @@ class Command:
 		else:
 			return proc
 
-	def run_nonblocking(self):
+	def run_nonblocking(self, _quiet=False):
 		"""Executes the command, but instead of blocking until completed, it returns immediately,
 		returning the subprocess.Popen instance.
 		It is an error to combine this with writing string data to stdin as this requires blocking
 		on the command reading the stdin data."""
 		if self._stdin[0] == "data":
 			raise ValueError("Cannot use run_nonblocking() with stdin data")
-		return self._make_proc()
+		return self._make_proc(_quiet=_quiet)
 
 	def _run(self):
 		"""Common code for blocking execution methods"""
@@ -143,8 +184,11 @@ class Command:
 			raise
 		return subprocess.CompletedProcess(self._args, retcode, stdout, stderr)
 
-	def _make_proc(self):
+	def _make_proc(self, _quiet=False):
 		"""Common code for creating the Popen object"""
+		if not _quiet:
+			verbose_print(1, f"Running command: {self}")
+
 		if self._stdin[0] == "data":
 			stdin = subprocess.PIPE
 		elif self._stdin[0] == "file":
@@ -185,6 +229,9 @@ class Pipeline:
 
 	def __repr__(self):
 		return " | ".join(map(repr, self._commands))
+
+	def __str__(self):
+		return " | ".join(map(str, self._commands))
 
 	def env(self, **env):
 		"""Set or update environment variables in all commands in the pipeline."""
@@ -251,13 +298,14 @@ class Pipeline:
 		It is an error to combine this with writing string data to stdin as this requires blocking
 		on the command reading the stdin data.
 		"""
+		verbose_print(1, f"Running commands: {self}")
 		procs = []
 		for i, command in enumerate(self._commands):
 			if i > 0: # all but first, take stdin from previous
 				command = command.stdin(procs[-1].stdout)
 			if i < len(self._commands) - 1: # all but last, stdout is a pipe
 				command = command.stdout(subprocess.PIPE)
-			procs.append(command.run_nonblocking())
+			procs.append(command.run_nonblocking(_quiet=True))
 		return procs
 
 	def _run(self, error_on_failure):

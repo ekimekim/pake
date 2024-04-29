@@ -5,7 +5,8 @@ import re
 from hashlib import sha256
 from uuid import uuid4
 
-from .exceptions import BuildError, RuleError
+from .exceptions import BuildError, RuleError, chain_str
+from .verbose_print import verbose_print
 
 
 """API for declaring dependencies and build rules
@@ -26,8 +27,9 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		Must be passed the result of a call to match().
 	target(match): Returns the canonical target name of a target previously matched by a call
 		to match. Must be passed the result of the match() call.
-	needs_update(match, old_result): Returns True if the target needs to be updated even if all deps match
-		(eg. because the file has changed on disk). Must be passed the result of the match() call.
+	needs_update(match, old_result): Returns a reason string if the target needs to be updated
+		even if all deps match (eg. because the file has changed on disk). Otherwise returns None.
+		Must be passed the result of the match() call.
 		old_result is the cached result that we are potentially invalidating, or None if not cached.
 		Note this means we can't distinguish between not being cached and a result of None.
 		This isn't a problem in practice as the only rule types that use old_result will
@@ -155,14 +157,21 @@ class Rule:
 
 		# Always rebuild if deps have changed, but also ask the rule to do other checks
 		# (eg. rebuild if the file hash does not match).
-		needs_update = force
-		if not needs_update:
+		update_reason = None
+		if force:
+			update_reason = "force was requested"
+		if update_reason is None:
 			needs_update = self.registry.needs_update(target, inputs)
-		if not needs_update:
+			if needs_update:
+				update_reason = "dependencies have changed"
+		if update_reason is None:
 			result = self.registry.get_result(target)
-			needs_update = self.needs_update(match, result)
+			update_reason = self.needs_update(match, result)
 
-		if needs_update:
+		if update_reason is None:
+			verbose_print(1, f"{chain_str(_target_chain)}: Using cached result")
+		else:
+			verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
 			try:
 				result = self.run(match, inputs)
 			except RuleError as e:
@@ -172,7 +181,9 @@ class Rule:
 				raise BuildError(_target_chain, "Recipe raised exception") from e
 			self.registry.save_result(target, inputs, result)
 
-		return self.registry.get_result(target)
+		result = self.registry.get_result(target)
+		verbose_print(2, f"Got result for {target!r}: {result!r}")
+		return result
 
 
 class AlwaysRule(Rule):
@@ -197,7 +208,7 @@ class AlwaysRule(Rule):
 		return []
 
 	def needs_update(self, match, result):
-		return True
+		return "the always target is never cached"
 
 	def run(self, match, deps):
 		return unique()
@@ -233,7 +244,7 @@ class FallbackRule(Rule):
 
 	def needs_update(self, match, result):
 		# We could hash the file here and compare it, but that's the same thing as running anyway.
-		return True
+		return "it does not match any rule"
 
 	def run(self, match, deps):
 		target, error = match
@@ -273,7 +284,7 @@ class VirtualRule(Rule):
 		return self._deps
 
 	def needs_update(self, match, result):
-		return False
+		return None
 
 	def run(self, match, deps):
 		return self.recipe(deps)
@@ -286,9 +297,10 @@ class FileRule(Rule):
 	"""Common base class for rules that build a file."""
 	def needs_update(self, match, result):
 		try:
-			return hash_file(self.target(match)) != result
+			changed = hash_file(self.target(match)) != result
 		except FileNotFoundError:
-			return True
+			return "it does not exist"
+		return "it has been modified" if changed else None
 
 	def run(self, match, deps):
 		target = self.target(match)
