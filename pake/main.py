@@ -7,7 +7,7 @@ from .registry import Registry
 from .rules import FallbackRule
 from .exceptions import PakeError
 
-def main(*targets, pakefile=None, statefile=".pake-state", force=False):
+def main(*targets, pakefile=None, statefile=".pake-state", force=False, graph=False):
 	try:
 		if pakefile is None:
 			candidates = ["Pakefile", "Pakefile.py"]
@@ -27,6 +27,10 @@ def main(*targets, pakefile=None, statefile=".pake-state", force=False):
 				raise PakeError("No targets given and no default target defined.")
 			targets = ["default"]
 
+		if graph:
+			print_graph(registry.get_deps(*targets))
+			return
+
 		for target in targets:
 			registry.update(target, force=force)
 
@@ -35,3 +39,9 @@ def main(*targets, pakefile=None, statefile=".pake-state", force=False):
 		if e.__cause__ is not None:
 			traceback.print_exception(e.__cause__)
 		sys.exit(1)
+
+
+def print_graph(graph, indent=0):
+	for value, children in graph.items():
+		print("  " * indent + value)
+		print_graph(children, indent=indent+1)

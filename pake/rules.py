@@ -106,7 +106,32 @@ class Rule:
 	def __repr__(self):
 		return f"<{type(self).__name__}({self.name!r})>"
 
+	def get_deps(self, match, _target_chain=()):
+		"""With the given target match, find all dependencies.
+		Returns a tree {dep: (dep's get_deps()}"""
+		target = self.target(match)
+
+		has_cycle = target in _target_chain
+		_target_chain += (target,)
+		if has_cycle:
+			raise BuildError(_target_chain, "Dependency cycle detected")
+
+		# This may fail if PatternRule expansions are invalid
+		try:
+			deps = self.deps(match)
+		except Exception as e:
+			raise BuildError(_target_chain, "Failed to determine dependencies") from e
+
+		result = {}
+		for dep in deps:
+			rule, dep_match = self.registry.resolve(dep)
+			result[dep] = rule.get_deps(dep_match, _target_chain=_target_chain)
+
+		return result
+
 	def update(self, match, force=False, _target_chain=()):
+		"""With the given target match, update this rule and all its dependencies.
+		If force given, will re-run even if the cache is valid."""
 		target = self.target(match)
 
 		has_cycle = target in _target_chain

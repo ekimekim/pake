@@ -111,6 +111,14 @@ class Registry:
 		rule, match = self.resolve(target)
 		return rule.update(match, force=force)
 
+	def get_deps(self, *targets):
+		"""Get dependencies of each target as a tree {target: get_deps(dep)}"""
+		result = {}
+		for target in targets:
+			rule, match = self.resolve(target)
+			result[target] = rule.get_deps(match)
+		return result
+
 	def resolve(self, target):
 		"""Find and return the rule that matches target"""
 		for rule in self.rules:
