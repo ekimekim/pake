@@ -18,20 +18,20 @@ PROFILES = {
 
 headers = match_files(r".*\.h")
 sources = match_files(r".*\.c")
-objects = [re.sub(source, r"\.c$", r"\.o") for source in sources]
+objects = [re.sub(r"\.c$", r".o", source) for source in sources]
 
-@pattern(r"build/(debug|release)/(.*)\.o", deps=["\2.c", headers])
+@pattern(r"build/(debug|release)/(.+)\.o", deps=[r"\2.c"] + headers)
 def build_object(target, deps, match):
 	profile = match.group(1)
 	source, *headers = deps
 	cc = PROFILES[profile]
-	cc("-c", "-o", target, source)
+	cc("-c", "-o", target, source).run()
 
 @pattern(f"build/(debug|release)/{NAME}", deps=[rf"build/\1/{o}" for o in objects])
 def build(target, deps, match):
 	profile = match.group(1)
 	cc = PROFILES[profile]
-	cc("-o", target, *deps)
+	cc("-o", target, *deps).run()
 
 
 alias("default", f"build/release/{NAME}")
