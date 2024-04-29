@@ -174,6 +174,8 @@ class Rule:
 			except Exception as e:
 				# raise ... from e will include e's traceback in the output
 				raise BuildError(_target_chain, "Recipe raised exception") from e
+			except KeyboardInterrupt as e:
+				raise BuildError(_target_chain, "Build was interrupted") from e
 			self.registry.save_result(target, inputs, result)
 
 		result = self.registry.get_result(target)
