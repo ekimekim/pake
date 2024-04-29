@@ -21,10 +21,10 @@ from .verbose_print import set_verbosity, verbose_print
 ]))
 @argh.arg("-v", "--verbose", action="count", default=0, help=" ".join([
 	"Specify multiple times to print additional information:",
-	"(Once) Print when skipping targets due to being up to date.",
-	"(Once) Print echo() statements and commands run by recipes.",
-	"(Twice) Print the result (return value or file hash) of each target.",
-	"(Thrice) Print each rule considered when matching targets to rules.",
+	"[1] Print echo() statements and commands run by recipes.",
+	"[2] Print when skipping targets due to being up to date.",
+	"[3] Print the result (return value or file hash) of each target.",
+	"[4] Print each rule considered when matching targets to rules.",
 ]))
 def main(*targets, pakefile=None, statefile=".pake-state", force=False, graph=False, quiet=0, verbose=0):
 	set_verbosity(verbose - quiet)

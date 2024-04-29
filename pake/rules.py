@@ -164,7 +164,7 @@ class Rule:
 			update_reason = self.needs_update(match, result)
 
 		if update_reason is None:
-			verbose_print(1, f"{chain_str(_target_chain)}: Using cached result")
+			verbose_print(2, f"{chain_str(_target_chain)}: Using cached result")
 		else:
 			if update_reason != "":
 				verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
@@ -180,7 +180,7 @@ class Rule:
 			self.registry.save_result(target, inputs, result)
 
 		result = self.registry.get_result(target)
-		verbose_print(2, f"Got result for {target!r}: {result!r}")
+		verbose_print(3, f"Got result for {target!r}: {result!r}")
 		return result
 
 

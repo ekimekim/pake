@@ -99,7 +99,7 @@ class Registry:
 			"find": cmd.find,
 			"match_files": cmd.match_files,
 			"write": cmd.write,
-			"log": functools.partial(verbose_print, 2),
+			"log": functools.partial(verbose_print, 1),
 		}
 		with open(pakefile) as f:
 			source = f.read()
@@ -128,7 +128,7 @@ class Registry:
 		for rule in self.rules:
 			match = rule.match(target)
 			if match is None:
-				verbose_print(3, f"Resolving target {target!r}: {rule} does not match")
+				verbose_print(4, f"Resolving target {target!r}: {rule} does not match")
 			else:
 				verbose_print(3, f"Resolving target {target!r}: {rule} matched")
 				return rule, match
