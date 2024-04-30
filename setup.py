@@ -10,4 +10,7 @@ setup(
 	install_requires=[
 		'argh',
 	],
+	entry_points = {
+		'console_scripts': ['pake=pake.__main__:entrypoint'],
+	},
 )

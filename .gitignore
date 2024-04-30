@@ -1,2 +1,4 @@
 Pakefile.py
 .pake-state
+build
+*.egg-info
