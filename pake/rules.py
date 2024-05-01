@@ -264,7 +264,7 @@ class VirtualRule(Rule):
 	"""
 	PRIORITY = 0 # Lower than all file-based rules, to ensure the virtual rule matches NAME first
 
-	def __init__(self, registry, recipe, name=None, deps=[]):
+	def __init__(self, registry, recipe, deps=[], name=None):
 		if name is None:
 			name = recipe.__name__
 		super().__init__(registry, name)
@@ -395,7 +395,7 @@ def group(registry, name, deps):
 	def collect_dep_results(deps):
 		"""Returns a combination of all dep names and results"""
 		return {dep: registry.get_result(dep) for dep in deps}
-	return VirtualRule(registry, collect_dep_results, name, deps)
+	return VirtualRule(registry, collect_dep_results, deps, name=name)
 
 
 def alias(registry, name, target):
