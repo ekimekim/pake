@@ -1,6 +1,7 @@
 
 import fcntl
 import functools
+import glob
 import json
 import logging
 import os
@@ -84,6 +85,7 @@ class Registry:
 
 	def load_pakefile(self, pakefile):
 		injected = {
+			"os": os,
 			"registry": self,
 			"virtual": rules.as_decorator(self, rules.VirtualRule),
 			"target": rules.as_decorator(self, rules.TargetRule),
@@ -98,6 +100,7 @@ class Registry:
 			"shell": cmd.shell,
 			"find": cmd.find,
 			"match_files": cmd.match_files,
+			"glob": glob.glob,
 			"write": cmd.write,
 			"log": functools.partial(verbose_print, 1),
 		}
