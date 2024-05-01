@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import subprocess
@@ -105,6 +106,10 @@ class Command:
 		"""Set stdin to send the given string/bytes data over a pipe."""
 		return self._copy(_stdin=("data", data))
 
+	def stdin_json(self, data):
+		"""As stdin_data() but encodes the given data as JSON first"""
+		return self.stdin_data(json.dumps(data))
+
 	def stdout(self, value):
 		"""As stdin()"""
 		return self._copy(_stdout=value)
@@ -154,6 +159,10 @@ class Command:
 			return proc.stdout if raw else proc.stdout.decode().strip()
 		else:
 			return proc
+
+	def json(self):
+		"""As get_output() but parses the returned data as JSON"""
+		return json.loads(self.get_output())
 
 	def run_nonblocking(self, _quiet=False):
 		"""Executes the command, but instead of blocking until completed, it returns immediately,
@@ -245,6 +254,10 @@ class Pipeline:
 		"""As Command.stdin_data(), applies to first command"""
 		return Pipeline((self._commands[0].stdin_data(data),) + self._commands[1:])
 
+	def stdin_json(self, data):
+		"""As Command.stdin_json(), applies to first command"""
+		return Pipeline((self._commands[0].stdin_json(data),) + self._commands[1:])
+
 	def stdout(self, value):
 		"""As Command.stdout(), applies to last command"""
 		return Pipeline(self._commands[:-1] + (self._commands[-1].stdout(value),))
@@ -291,6 +304,10 @@ class Pipeline:
 			return procs[-1].stdout
 		else:
 			return procs[-1].stdout.decode().strip()
+
+	def json(self):
+		"""As get_output() but parses the returned data as JSON"""
+		return json.loads(self.get_output())
 
 	def run_nonblocking(self):
 		"""Executes the pipeline, but instead of blocking until completed, it returns immediately,
