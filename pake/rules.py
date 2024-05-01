@@ -33,8 +33,6 @@ A generic "rule" consists of a recipe function, wrapped with some metadata:
 		Note this means we can't distinguish between not being cached and a result of None.
 		This isn't a problem in practice as the only rule types that use old_result will
 		never return None.
-		If you return empty string as the reason, an update is done but the message saying why
-		is suppressed. This makes sense for some internal-details rules like AlwaysRule and FallbackRule.
 	run(match, deps): Runs the recipe. Assumes all dependencies are already up to date.
 		Is passed the result of a call to match() and a dict {dep: result} for each dep returned by deps().
 		Normal rules return the hash of the built filepath. Virtual rules may return
@@ -96,6 +94,10 @@ def normalize_path(filepath):
 
 
 class Rule:
+	# If true, don't print a message to the user that we're building this rule.
+	# This is intended for internal details like AlwaysRule and FallbackRule.
+	SUPPRESS_BUILD_MESSAGE = False
+
 	def __init__(self, registry, name):
 		self.registry = registry
 		self.name = name
@@ -166,7 +168,7 @@ class Rule:
 		if update_reason is None:
 			verbose_print(2, f"{chain_str(_target_chain)}: Using cached result")
 		else:
-			if update_reason != "":
+			if not self.SUPPRESS_BUILD_MESSAGE:
 				verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
 			try:
 				result = self.run(match, inputs)
@@ -190,6 +192,9 @@ class AlwaysRule(Rule):
 	# Is fundamental and will break things if overriden, always go first
 	PRIORITY = float("-inf")
 
+	# This doesn't actually do anything so we don't need to say we're building it
+	SUPPRESS_BUILD_MESSAGE = True
+
 	def __init__(self, registry):
 		super().__init__(registry, "always")
 
@@ -206,7 +211,7 @@ class AlwaysRule(Rule):
 		return []
 
 	def needs_update(self, match, result):
-		return ""
+		return "always"
 
 	def run(self, match, deps):
 		return self.registry.unique()
@@ -218,6 +223,9 @@ class FallbackRule(Rule):
 	"""
 	# Matches anything, always go last
 	PRIORITY = float("inf")
+
+	# This isn't really a "build" recipe so it's confusing to say we're "building" it
+	SUPPRESS_BUILD_MESSAGE = True
 
 	def __init__(self, registry):
 		super().__init__(registry, "fallback")
@@ -242,7 +250,7 @@ class FallbackRule(Rule):
 
 	def needs_update(self, match, result):
 		# We could hash the file here and compare it, but that's the same thing as running anyway.
-		return ""
+		return "always"
 
 	def run(self, match, deps):
 		target, error = match
