@@ -112,11 +112,11 @@ class Registry:
 		except Exception as e:
 			raise PakeError("Unhandled exception while loading Pakefile") from e
 
-	def update(self, target, force=False):
+	def update(self, target, rebuild=None):
 		"""Build target and any dependencies (if they are not up to date) and return
 		the target's result"""
 		rule, match = self.resolve(target)
-		return rule.update(match, force=force)
+		return rule.update(match, rebuild=rebuild)
 
 	def get_deps(self, *targets):
 		"""Get dependencies of each target as a tree {target: get_deps(dep)}"""

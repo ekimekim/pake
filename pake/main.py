@@ -13,7 +13,8 @@ from .verbose_print import set_verbosity, verbose_print
 @argh.arg("targets", help="Target names to build. Defaults to the 'default' target.")
 @argh.arg("--pakefile", "-f", help="Pakefile filename. Defaults to Pakefile or Pakefile.py")
 @argh.arg("--statefile", help="Filepath to store cache state")
-@argh.arg("--force", help="Rebuild everything even if we think we don't need to")
+@argh.arg("--rebuild", help="Rebuild explicitly listed targets even if we think we don't need to")
+@argh.arg("--rebuild-all", help="Rebuild everything (including all dependencies) even if we think we don't need to")
 @argh.arg("--graph", help="Instead of building given targets, show a dependency graph")
 @argh.arg("-q", "--quiet", action="count", default=0, help=" ".join([
 	"Specify once to restrict output to errors only. Specify twice to never output anything."
@@ -26,9 +27,16 @@ from .verbose_print import set_verbosity, verbose_print
 	"[3] Print the result (return value or file hash) of each target.",
 	"[4] Print each rule considered when matching targets to rules.",
 ]))
-def main(*targets, pakefile=None, statefile=".pake-state", force=False, graph=False, quiet=0, verbose=0):
+def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuild_all=False, graph=False, quiet=0, verbose=0):
 	set_verbosity(verbose - quiet)
 	try:
+		if rebuild_all:
+			rebuild = "deep"
+		elif rebuild:
+			rebuild = "shallow"
+		else:
+			rebuild = None
+
 		if pakefile is None:
 			candidates = ["Pakefile", "Pakefile.py"]
 			for candidate in candidates:
@@ -52,7 +60,7 @@ def main(*targets, pakefile=None, statefile=".pake-state", force=False, graph=Fa
 			return
 
 		for target in targets:
-			registry.update(target, force=force)
+			registry.update(target, rebuild=rebuild)
 
 	except PakeError as e:
 		verbose_print(-1, e, file=sys.stderr)

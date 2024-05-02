@@ -129,9 +129,11 @@ class Rule:
 
 		return result
 
-	def update(self, match, force=False, _target_chain=()):
+	def update(self, match, rebuild=None, _target_chain=()):
 		"""With the given target match, update this rule and all its dependencies.
-		If force given, will re-run even if the cache is valid."""
+		If rebuild is "shallow", will re-run even if the cache is valid.
+		If rebuild is "deep", will re-run this AND all depedencies even if cache is valid.
+		"""
 		target = self.target(match)
 
 		has_cycle = target in _target_chain
@@ -152,13 +154,17 @@ class Rule:
 			# This means any change in how dep is specified causes a rebuild,
 			# but conversely that the deps dict passed to the recipe matches the
 			# dep string the rule specified, eg. "foo.txt" not "./foo.txt"
-			inputs[dep] = rule.update(dep_match, force=force, _target_chain=_target_chain)
+			inputs[dep] = rule.update(
+				dep_match,
+				rebuild=rebuild if rebuild == "deep" else None,
+				_target_chain=_target_chain,
+			)
 
 		# Always rebuild if deps have changed, but also ask the rule to do other checks
 		# (eg. rebuild if the file hash does not match).
 		update_reason = None
-		if force:
-			update_reason = "force was requested"
+		if rebuild is not None:
+			update_reason = "rebuild was requested"
 		if update_reason is None:
 			update_reason = self.registry.needs_update(target, inputs)
 		if update_reason is None:
@@ -295,8 +301,8 @@ class VirtualRule(Rule):
 	def run(self, match, deps):
 		return self.recipe(deps)
 
-	def __call__(self, force=False):
-		return self.update(self.match(self.name), force=force)
+	def __call__(self, rebuild=None):
+		return self.update(self.match(self.name), rebuild=rebuild)
 
 
 class FileRule(Rule):
@@ -354,8 +360,8 @@ class TargetRule(FileRule):
 	def _run(self, target, deps, match):
 		return self.recipe(target, deps)
 
-	def __call__(self, force=False):
-		return self.update(self.match(self.filepath), force=force)
+	def __call__(self, rebuild=None):
+		return self.update(self.match(self.filepath), rebuild=rebuild)
 
 
 class PatternRule(FileRule):
@@ -390,11 +396,11 @@ class PatternRule(FileRule):
 	def _run(self, target, deps, match):
 		return self.recipe(target, deps, match)
 
-	def __call__(self, target, force=False):
+	def __call__(self, target, rebuild=None):
 		match = self.match(target)
 		if match is None:
 			raise ValueError(f"{target!r} is not a valid target matching {self.name!r}")
-		return self.update(match, force=force)
+		return self.update(match, rebuild=rebuild)
 
 
 def group(registry, name, deps):
