@@ -427,7 +427,7 @@ def default(registry, rule):
 	return rule
 
 
-def always(registry, recipe, name=None, deps=[]):
+def always(registry, recipe, deps=[], name=None):
 	"""Helper to create a virtual rule which always runs.
 	All this does is automatically add "always" as a dependency. It's just nicer to use,
 	especially when it's your only dependency. Compare:
@@ -435,7 +435,7 @@ def always(registry, recipe, name=None, deps=[]):
 	vs
 		@always()
 	"""
-	return VirtualRule(registry, recipe, name, ["always"] + list(deps))
+	return VirtualRule(registry, recipe, ["always"] + list(deps), name=name)
 
 
 def as_decorator(registry, rule_type):
