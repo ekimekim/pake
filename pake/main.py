@@ -1,4 +1,5 @@
 
+import argparse
 import sys
 import os
 import traceback
@@ -8,7 +9,7 @@ import argh
 from .registry import Registry
 from .rules import FallbackRule
 from .exceptions import PakeError
-from .verbose_print import set_verbosity, verbose_print
+from . import verbose_print
 
 @argh.arg("targets", help="Target names to build. Defaults to the 'default' target.")
 @argh.arg("--pakefile", "-f", help="Pakefile filename. Defaults to Pakefile or Pakefile.py")
@@ -16,6 +17,7 @@ from .verbose_print import set_verbosity, verbose_print
 @argh.arg("--rebuild", help="Rebuild explicitly listed targets even if we think we don't need to")
 @argh.arg("--rebuild-all", help="Rebuild everything (including all dependencies) even if we think we don't need to")
 @argh.arg("--graph", help="Instead of building given targets, show a dependency graph")
+@argh.arg("--color", action=argparse.BooleanOptionalAction, help="Enable or disable colored output. Default is enabled if stdout is a tty.")
 @argh.arg("-q", "--quiet", action="count", default=0, help=" ".join([
 	"Specify once to restrict output to errors only. Specify twice to never output anything."
 	"Note that even with -qq recipes may run commands that print to stdout."
@@ -27,8 +29,10 @@ from .verbose_print import set_verbosity, verbose_print
 	"[3] Print the result (return value or file hash) of each target.",
 	"[4] Print each rule considered when matching targets to rules.",
 ]))
-def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuild_all=False, graph=False, quiet=0, verbose=0):
-	set_verbosity(verbose - quiet)
+def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuild_all=False, graph=False, quiet=0, verbose=0, color=None):
+	if color is None:
+		color = sys.stdout.isatty()
+	verbose_print.set(verbose - quiet, color)
 	try:
 		if rebuild_all:
 			rebuild = "deep"
@@ -63,7 +67,7 @@ def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuil
 			registry.update(target, rebuild=rebuild)
 
 	except PakeError as e:
-		verbose_print(-1, e, file=sys.stderr)
+		verbose_print.verbose_print(-1, e, file=sys.stderr)
 		if e.__cause__ is not None:
 			traceback.print_exception(e.__cause__)
 		sys.exit(1)
