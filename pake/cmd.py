@@ -6,7 +6,7 @@ import sys
 import threading
 from shlex import quote # only used for pretty-printing
 
-from .verbose_print import verbose_print
+from .verbose_print import verbose_print, color
 
 """Provides a builder for running child processes in an ergonomic way."""
 
@@ -196,7 +196,7 @@ class Command:
 	def _make_proc(self, _quiet=False):
 		"""Common code for creating the Popen object"""
 		if not _quiet:
-			verbose_print(1, f"Running command: {self}")
+			verbose_print(1, color.purple(f"Running command: {self}"))
 
 		if self._stdin[0] == "data":
 			stdin = subprocess.PIPE
@@ -315,7 +315,7 @@ class Pipeline:
 		It is an error to combine this with writing string data to stdin as this requires blocking
 		on the command reading the stdin data.
 		"""
-		verbose_print(1, f"Running commands: {self}")
+		verbose_print(1, color.purple(f"Running commands: {self}"))
 		procs = []
 		for i, command in enumerate(self._commands):
 			if i > 0: # all but first, take stdin from previous

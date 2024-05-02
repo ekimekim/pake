@@ -67,10 +67,10 @@ def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuil
 			registry.update(target, rebuild=rebuild)
 
 	except PakeError as e:
-		verbose_print.verbose_print(-1, e, file=sys.stderr)
+		output = str(e)
 		if e.__cause__ is not None:
-			tb = "".join(traceback.format_exception(e.__cause__))[:-1]
-			verbose_print.verbose_print(-1, tb, file=sys.stderr)
+			output += "\n" + "".join(traceback.format_exception(e.__cause__))[:-1]
+		verbose_print.verbose_print(-1, verbose_print.color.red(output), file=sys.stderr)
 		sys.exit(1)
 
 

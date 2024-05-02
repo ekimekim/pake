@@ -5,7 +5,7 @@ import re
 from hashlib import sha256
 
 from .exceptions import BuildError, RuleError, chain_str
-from .verbose_print import verbose_print
+from .verbose_print import verbose_print, color
 
 
 """API for declaring dependencies and build rules
@@ -172,10 +172,10 @@ class Rule:
 			update_reason = self.needs_update(match, result)
 
 		if update_reason is None:
-			verbose_print(2, f"{chain_str(_target_chain)}: Using cached result")
+			verbose_print(2, color.yellow(f"{chain_str(_target_chain)}: Using cached result"))
 		else:
 			if not self.SUPPRESS_BUILD_MESSAGE:
-				verbose_print(0, f"{chain_str(_target_chain)}: Building because {update_reason}")
+				verbose_print(0, color.green(f"{chain_str(_target_chain)}: Building because {update_reason}"))
 			try:
 				result = self.run(match, inputs)
 			except RuleError as e:

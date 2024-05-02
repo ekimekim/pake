@@ -1,10 +1,11 @@
+from .verbose_print import color
 
 class PakeError(Exception):
 	"""General exception that should be reported to the user"""
 
 
 def chain_str(chain):
-	return " -> ".join(chain)
+	return " -> ".join(color.cyan(target) for target in chain)
 
 
 class BuildError(PakeError):
