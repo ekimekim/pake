@@ -69,7 +69,8 @@ def main(*targets, pakefile=None, statefile=".pake-state", rebuild=False, rebuil
 	except PakeError as e:
 		verbose_print.verbose_print(-1, e, file=sys.stderr)
 		if e.__cause__ is not None:
-			traceback.print_exception(e.__cause__)
+			tb = "".join(traceback.format_exception(e.__cause__))[:-1]
+			verbose_print.verbose_print(-1, tb, file=sys.stderr)
 		sys.exit(1)
 
 
