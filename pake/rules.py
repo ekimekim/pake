@@ -435,7 +435,7 @@ def always(registry, recipe, deps=[], name=None):
 	vs
 		@always()
 	"""
-	return VirtualRule(registry, recipe, ["always"] + list(deps), name=name)
+	return VirtualRule(registry, recipe, list(deps) + ["always"], name=name)
 
 
 def as_decorator(registry, rule_type):
