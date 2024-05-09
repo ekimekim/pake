@@ -22,7 +22,7 @@ def build_foo(target, deps):
 ```
 
 This is approximately equivalent to the following Makefile rule:
-```
+```make
 foo.out: foo.in
 	mycommand -o $@ $*
 ```
@@ -121,7 +121,7 @@ Raise an exception if you need to indicate failure.
 
 Examples:
 
-```
+```python
 # No dependencies
 @target("helloworld.txt")
 def hello_world(target, deps):
@@ -161,7 +161,7 @@ If two pattern rules match, the one defined first takes precedence.
 
 Examples:
 
-```
+```python
 # Fixed dependencies
 @pattern(".*/marker", ["marker-contents.txt"])
 def marker(target, deps, match):
@@ -222,7 +222,7 @@ the `registry.unique()` helper will return a suitable unique-per-invocation valu
 
 Examples:
 
-```
+```python
 # Virtual targets follow the normal rebuild rules, so this recipe will only be run
 # when foo.txt changes.
 @virtual(["foo.txt"])
@@ -247,7 +247,7 @@ def foo_bar(deps):
 Since target rules match any version of the filename, it is still possible to match a file
 with the name of a target rule.
 
-```
+```python
 @target("foo")
 def foo_file(target, deps):
 	...
@@ -278,7 +278,7 @@ over the latter.
 
 Examples:
 
-```
+```python
 alias("foo", "foo.txt")
 
 group("all", ["bin/debug/foo", "bin/release/foo", "bin/debug/bar", "bin/release/bar"])
@@ -300,7 +300,7 @@ As a shortcut, you can alias `default` to another target using the `@default` de
 Note that this won't work properly on a pattern rule, since there isn't a single target
 associated with the rule.
 
-```
+```python
 # Defining an alias using the @default decorator
 @default
 @target("output.txt")
@@ -326,7 +326,7 @@ or run some command when explicitly requested by a user.
 
 As a shortcut, you can create a virtual rule with `always` as a dependency via the `@always` wrapper:
 
-```
+```python
 @always()
 def git_tag(deps):
 	return cmd("git", "rev-parse", "HEAD").get_output()
