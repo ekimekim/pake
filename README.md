@@ -333,3 +333,15 @@ def git_tag(deps):
 ```
 
 `@always` acts exactly like `@virtual` except it implicitly appends `always` to the dependency list.
+
+### `clean`
+
+The `clean` target is a built-in virtual target that deletes all built files.
+
+Specifically, it deletes any existing files that match any file-based rule (ie. a target rule or pattern rule).
+
+This virtual rule will always be run when checked (it depends on `always`) and returns `None`,
+meaning dependents never consider it to have changed.
+
+This can be useful for clearing out files that are no longer needed. However if all you want is
+to force a rebuild of all targets, you should use `--rebuild-all` instead.

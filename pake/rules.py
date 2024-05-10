@@ -438,6 +438,19 @@ def always(registry, recipe, deps=[], name=None):
 	return VirtualRule(registry, recipe, list(deps) + ["always"], name=name)
 
 
+def clean_rule(registry):
+	"""An implicit virtual rule that deletes all files which match a non-fallback rule,
+	ie. files that can be rebuilt. This rule is never cached and returns None."""
+	def clean(deps):
+		# iterate backwards so that directories are only considered after
+		# all their contents are.
+		for filename in reversed(match_files(".*")):
+			rule, match = registry.resolve(filename)
+			if isinstance(rule, FileRule):
+				os.remove(filename)
+	return VirtualRule(registry, clean, ["always"])
+
+
 def as_decorator(registry, rule_type):
 	"""
 	For a given Rule class, creators a decorator-style contructor:

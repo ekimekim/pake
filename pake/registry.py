@@ -79,6 +79,7 @@ class Registry:
 		# Initial implicit rules
 		self.rules = []
 		rules.AlwaysRule(self)
+		rules.clean_rule(self)
 		rules.FallbackRule(self)
 		# This is used for providing a unique-per-invocation result
 		self.unique_token = f"unique/uniq:{uuid4()}"
